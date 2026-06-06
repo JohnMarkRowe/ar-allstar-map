@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arkansas AllStarLink Nodes — Live</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<style>
+  html,body{margin:0;height:100%;font-family:system-ui,Segoe UI,Arial,sans-serif}
+  #map{height:100%}
+  .panel{position:absolute;z-index:1000;top:10px;left:50px;background:rgba(20,28,38,.93);
+       color:#fff;padding:11px 14px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.45);max-width:360px}
+  .panel h1{font-size:16px;margin:0 0 6px}
+  .panel p{font-size:12px;margin:3px 0;color:#cdd6e0}
+  .stat{display:inline-block;margin-right:12px;font-size:13px;font-weight:600}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+  .on{background:#2ecc55}.off{background:#e0453a}.air{background:#ff3b1d}.act{background:#e67e22}
+  .filters{margin-top:7px;font-size:12px}
+  .filters label{margin-right:9px;cursor:pointer}
+  #updated{color:#8fa6bd;font-size:11px}
+  #actInfo{color:#ffcf99;font-size:12px;font-weight:600;min-height:14px}
+  #connBtn{margin-top:8px;font-size:12px;padding:5px 9px;border:0;border-radius:6px;
+           background:#f1c40f;color:#222;font-weight:700;cursor:pointer}
+  #connBtn:hover{background:#f5d33a}
+  .connbox{margin-top:7px;display:flex;gap:5px;align-items:center}
+  .connbox input{width:92px;font-size:12px;padding:4px 6px;border:1px solid #44586c;
+                 border-radius:5px;background:#0f1822;color:#fff}
+  .connbox button{font-size:12px;padding:4px 9px;border:0;border-radius:5px;cursor:pointer;font-weight:600}
+  #connGo{background:#3498db;color:#fff}#connGo:hover{background:#4aa9e8}
+  #connClr{background:#3a4655;color:#dfe7ef}#connClr:hover{background:#4a586a}
+  .disclaimer{margin-top:8px;font-size:11px;line-height:1.45;color:#ffe0a3;
+              background:rgba(180,120,20,.16);border:1px solid rgba(241,196,15,.4);
+              padding:6px 8px;border-radius:6px}
+  .leaflet-popup-content a{color:#1565c0;text-decoration:none}
+  .leaflet-popup-content a:hover{text-decoration:underline}
+  #connBack{background:#5d6d7e;color:#fff}#connBack:hover:not(:disabled){background:#6e8095}
+  #connBack:disabled{opacity:.4;cursor:default}
+  #warnBtn{margin-top:7px;font-size:12px;padding:5px 9px;border:0;border-radius:6px;
+           background:#7b241c;color:#ffd9d2;font-weight:700;cursor:pointer}
+  #warnBtn:hover{background:#922b21}#warnBtn.on{background:#c0392b;color:#fff}
+  #warnInfo{font-size:11px;color:#ffb3a0;margin-left:6px}
+  #warnMuteLbl{font-size:11px;color:#cdd6e0;margin-left:6px;cursor:pointer}
+  #warnAlert{display:none;position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:1200;
+    background:linear-gradient(90deg,#c0009b,#b30000);color:#fff;font-weight:700;font-size:14px;
+    padding:10px 16px;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.5);max-width:72%;text-align:center}
+  #warnAlert.show{animation:warnpulse 1s infinite}
+  #warnAlertX{cursor:pointer;margin-left:10px;font-size:18px;opacity:.85}
+  @keyframes warnpulse{0%,100%{box-shadow:0 0 0 0 rgba(192,0,155,.6)}50%{box-shadow:0 0 0 12px rgba(192,0,155,0)}}
+  #warnFlash{position:fixed;inset:0;pointer-events:none;z-index:1150;opacity:0}
+  #warnFlash.active{animation:warnflash 1s ease-out 6}
+  @keyframes warnflash{0%{opacity:0;box-shadow:inset 0 0 60px 20px rgba(224,0,0,0)}
+    30%{opacity:1;box-shadow:inset 0 0 90px 34px rgba(224,0,0,.85)}
+    100%{opacity:0;box-shadow:inset 0 0 60px 20px rgba(224,0,0,0)}}
+  #watchInput{font-size:12px;padding:4px 6px;border:1px solid #44586c;border-radius:5px;background:#0f1822;color:#fff}
+  #watchAdd{background:#3498db;color:#fff;font-size:12px;padding:4px 9px;border:0;border-radius:5px;cursor:pointer;margin-left:5px}
+  #watchAdd:hover{background:#4aa9e8}
+  #watchList{margin-top:4px}
+  .chip{display:inline-block;background:#2c3a4a;color:#dfe7ef;font-size:11px;padding:2px 7px;border-radius:10px;margin:2px 4px 0 0}
+  .chipx{cursor:pointer;color:#ff9a8a;font-weight:700;margin-left:4px}
+  #connList{display:none;margin-top:7px;font-size:11.5px;line-height:1.5;max-height:210px;
+            overflow:auto;background:rgba(0,0,0,.25);padding:6px 8px;border-radius:6px}
+  .leaflet-popup-content{font-size:13px;line-height:1.45}
+  .nn{font-weight:700;color:#1565c0}
+  .badge{font-weight:700;padding:1px 6px;border-radius:4px;color:#fff;font-size:11px}
+  @keyframes pulse{0%{fill-opacity:1;stroke-opacity:1}50%{fill-opacity:.25;stroke-opacity:.3}100%{fill-opacity:1;stroke-opacity:1}}
+  path.pulse{animation:pulse 1s infinite}
+</style>
+</head>
+<body>
+<div class="panel">
+  <h1>Arkansas AllStarLink Nodes</h1>
+  <p><b>162</b> registered nodes · live status from AllStarLink</p>
+  <p><span class="stat"><span class="dot on"></span>Online: <span id="cOn">…</span></span>
+     <span class="stat"><span class="dot off"></span>Offline: <span id="cOff">…</span></span></p>
+  <div class="filters">Show:
+    <label><input type="radio" name="flt" value="all" checked> All</label>
+    <label><input type="radio" name="flt" value="on"> Online</label>
+    <label><input type="radio" name="flt" value="off"> Offline</label>
+    <label style="margin-left:6px"><input type="checkbox" id="cty" checked> Counties</label>
+  </div>
+  <div class="filters">
+    <label><input type="checkbox" id="act"> <b>Last-keyed activity</b>
+      <span class="dot air"></span>on air <span class="dot act"></span>active(10m)</label>
+  </div>
+  <p id="actInfo"></p>
+  <button id="connBtn">Show node 65017 connections</button>
+  <div class="connbox">
+    <input id="connInput" type="text" inputmode="numeric" placeholder="any node #">
+    <button id="connGo">Inspect</button>
+    <button id="connBack" disabled>&#9664; Back</button>
+    <button id="connClr">Clear</button>
+  </div>
+  <div id="connList"></div>
+  <div class="filters">
+    <button id="warnBtn">&#9888; High-impact warnings</button>
+    <label id="warnMuteLbl"><input type="checkbox" id="warnMute"> mute</label>
+    <span id="warnInfo"></span>
+  </div>
+  <div style="margin-top:6px;font-size:11px;color:#cdd6e0">Alarm area: <b>all Arkansas counties</b> + add others:</div>
+  <div class="connbox" style="margin-top:4px">
+    <input id="watchInput" type="text" placeholder="County, ST (e.g. Shelby, TN)" style="width:160px">
+    <button id="watchAdd">Add</button>
+  </div>
+  <div id="watchList"></div>
+  <p id="updated">loading live status…</p>
+  <p style="color:#7c93aa;font-size:10.5px">Live status auto-refresh 60s ·
+     Activity = key-ups observed since you opened this page (AllStarLink updates ~60s).</p>
+  <div class="disclaimer">&#9888; Node positions are derived from AllStarLink <b>registry data</b> —
+     registered city centroids for Arkansas nodes and operator-registered coordinates for inspected nodes —
+     <b>not the actual physical repeater/antenna locations</b>. Treat all positions as approximate.</div>
+</div>
+<div id="map"></div>
+<div id="warnFlash"></div>
+<div id="warnAlert"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+var nodes=[
+{n:"2186",c:"WB5NFC",d:"TBD",city:"Pottsville",lat:35.2481394,lon:-93.0490610},
+{n:"2293",c:"WB5NFC",d:"444.4 +",city:"Russellville",lat:35.2784173,lon:-93.1337856},
+{n:"2347",c:"wb5nfc",d:"443.875+",city:"Russellville",lat:35.275468,lon:-93.130491},
+{n:"27336",c:"WB5NFC",d:"443.500",city:"Pottsville",lat:35.245190,lon:-93.045766},
+{n:"27622",c:"K5DCC",d:"437.800",city:"Omaha",lat:36.4514362,lon:-93.1893158},
+{n:"27911",c:"WB5NFC",d:"433.5000",city:"Russellville",lat:35.278912,lon:-93.140658},
+{n:"28059",c:"N5QM",d:"",city:"Maumelle",lat:34.8566130,lon:-92.4056858},
+{n:"28384",c:"k5TRY",d:"Normad node",city:"Fayetteville",lat:36.0625843,lon:-94.1574328},
+{n:"28681",c:"k5TRY",d:"Rtcm Node",city:"Fayetteville",lat:36.059635,lon:-94.154138},
+{n:"28752",c:"k5TRY",d:"VHF Hub",city:"Fayetteville",lat:36.063079,lon:-94.164305},
+{n:"29039",c:"k5TRY",d:"teSt",city:"Fayetteville",lat:36.066800,lon:-94.150728},
+{n:"29394",c:"k5TRY",d:"Normad node",city:"Fayetteville",lat:36.054707,lon:-94.159132},
+{n:"29905",c:"WX0X",d:"433.500",city:"Cabot",lat:34.9745320,lon:-92.0165336},
+{n:"40037",c:"AB5N",d:"145.55",city:"Hot Springs",lat:34.5038393,lon:-93.0552437},
+{n:"40038",c:"AB5N",d:"446.225",city:"Hot Springs",lat:34.500890,lon:-93.051949},
+{n:"40457",c:"W5BNL",d:"",city:"Bella Vista",lat:36.4678036,lon:-94.2669727},
+{n:"41026",c:"KK4IOH",d:"",city:"West Memphis",lat:35.1464797,lon:-90.1845388},
+{n:"41420",c:"KK4IOH",d:"445.925",city:"West Memphis",lat:35.143530,lon:-90.181244},
+{n:"41741",c:"K5TW",d:"K5TW System Hub",city:"Trumann",lat:35.6728822,lon:-90.5069406},
+{n:"41855",c:"K5TW",d:"146.835 PL 107.2",city:"Harrisburg",lat:35.5631272,lon:-90.7185589},
+{n:"41856",c:"K5TW",d:"444.525 PL 94.8",city:"Harrisburg",lat:35.560178,lon:-90.715264},
+{n:"41857",c:"NI5A",d:"147.24 PL 107.2",city:"Jonesboro",lat:35.8348088,lon:-90.7045297},
+{n:"41858",c:"NI5A",d:"443.500 PL 94.8",city:"Trumann",lat:35.669933,lon:-90.503646},
+{n:"41859",c:"NI5A",d:"146.955 PL 107.2",city:"Trumann",lat:35.673377,lon:-90.513813},
+{n:"42685",c:"KJ5PMI",d:"446.950",city:"Lincoln",lat:35.9494569,lon:-94.4233612},
+{n:"43575",c:"AB5BC",d:"444.3300",city:"Turrell",lat:35.3765218,lon:-90.2568406},
+{n:"43997",c:"KH6PRD",d:"448.305",city:"Bella Vista",lat:36.464854,lon:-94.263678},
+{n:"44877",c:"W5TMW",d:"435.100",city:"Jonesboro",lat:35.831859,lon:-90.701235},
+{n:"45420",c:"K5TW",d:"Clear Node Hotspot",city:"Harrisburg",lat:35.563622,lon:-90.725431},
+{n:"45421",c:"W5JBR",d:"146.610  PL 94.8",city:"Jonesboro",lat:35.835303,lon:-90.711402},
+{n:"45422",c:"NI5A",d:"Link to 146.61",city:"Jonesboro",lat:35.839024,lon:-90.697825},
+{n:"45921",c:"K5GIJ",d:"*GeekJeep*",city:"Mountain View",lat:35.8684075,lon:-92.1176521},
+{n:"46060",c:"N5MSC",d:"444.950",city:"Hughes",lat:34.9490408,lon:-90.4716462},
+{n:"46914",c:"NX5V/L",d:"441.200",city:"Springdale",lat:36.1867442,lon:-94.1288142},
+{n:"46918",c:"AJ5C",d:"441.900",city:"Harrison",lat:36.2297936,lon:-93.1076765},
+{n:"48493",c:"AB5N",d:"145.725",city:"Hot Springs",lat:34.504334,lon:-93.062116},
+{n:"49261",c:"KE5SQC",d:"N/A",city:"Fishook",lat:34.7022469,lon:-93.2889757},
+{n:"49617",c:"KI5CAM",d:"442.400",city:"Siloam Springs",lat:36.1866289,lon:-94.5413695},
+{n:"49775",c:"N9INK",d:"145.250-",city:"Summers",lat:35.9811927,lon:-94.4916067},
+{n:"50495",c:"AB5N",d:"HUB",city:"Hot Springs",lat:34.508055,lon:-93.048539},
+{n:"50496",c:"AB5N",d:"927.9875",city:"Hot Springs",lat:34.495962,lon:-93.056943},
+{n:"50497",c:"AB5N",d:"927.9875",city:"Hot Springs",lat:34.511386,lon:-93.061098},
+{n:"50670",c:"W5SMR",d:"443.650",city:"Conway",lat:35.0891932,lon:-92.4398402},
+{n:"51519",c:"WR5B",d:"",city:"Little Rock",lat:34.7465071,lon:-92.2896267},
+{n:"51689",c:"K5TEL",d:"",city:"Russellville",lat:35.282633,lon:-93.127080},
+{n:"52070",c:"KE5SQC",d:"446.025",city:"Fishook",lat:34.699297,lon:-93.285681},
+{n:"53401",c:"KI5MFS",d:"Mobile Node",city:"Trumann",lat:35.677098,lon:-90.500235},
+{n:"54403",c:"KK4ZZ",d:"",city:"Hope",lat:33.6670616,lon:-93.5915665},
+{n:"54525",c:"KC5GFL",d:"146.480",city:"Arkadelphia",lat:34.1209292,lon:-93.0537840},
+{n:"55255",c:"K5GLZ",d:"",city:"England",lat:34.5442609,lon:-91.9690285},
+{n:"55497",c:"N5LML",d:"",city:"Bentonville",lat:36.3728608,lon:-94.2087870},
+{n:"56774",c:"WB0TNP",d:"",city:"Mountain Home",lat:36.3361391,lon:-92.3801187},
+{n:"57711",c:"K5AIN",d:"",city:"North Little Rock",lat:34.7695360,lon:-92.2670941},
+{n:"57970",c:"WD5O",d:"444.725",city:"Highland",lat:36.2759002,lon:-91.5240287},
+{n:"58251",c:"N5MSC",d:"147.150",city:"Marion",lat:35.2129831,lon:-90.1949800},
+{n:"58252",c:"N5MSC",d:"442.150",city:"Marion",lat:35.210034,lon:-90.191685},
+{n:"58489",c:"K0WAV",d:"147.435",city:"Carroll County",lat:36.3386737,lon:-93.5093048},
+{n:"58821",c:"N0UCK",d:"146.520",city:"Norfork",lat:36.2095132,lon:-92.2843230},
+{n:"59984",c:"NI5C",d:"",city:"Batesville",lat:35.7708144,lon:-91.6531128},
+{n:"60387",c:"AG5QY",d:"446.1625",city:"Jonesboro",lat:35.826931,lon:-90.706229},
+{n:"60761",c:"KJ5DGG",d:"",city:"Marion",lat:35.213478,lon:-90.201852},
+{n:"61111",c:"KC5GFL",d:"145.270",city:"Arkadelphia",lat:34.117980,lon:-93.050489},
+{n:"62124",c:"W5AUU",d:"147.030 Mhz",city:"Conway",lat:35.086244,lon:-92.436545},
+{n:"62746",c:"KJ5GOV",d:"",city:"Scranton",lat:35.3605141,lon:-93.5402028},
+{n:"62777",c:"AI5VQ",d:"442.375+",city:"Leslie",lat:35.8303873,lon:-92.5578551},
+{n:"62785",c:"AI5VQ",d:"439.4250",city:"Leslie",lat:35.827438,lon:-92.554560},
+{n:"62872",c:"N5SEA",d:"Cloud Hub",city:"Crossett",lat:33.1263899,lon:-91.9629700},
+{n:"63275",c:"N5CES",d:"",city:"Arkadelphia",lat:34.121424,lon:-93.060656},
+{n:"63664",c:"KD5DF",d:"",city:"Forrest City",lat:35.0081474,lon:-90.7898342},
+{n:"63856",c:"WX5DR",d:"",city:"Fort Smith",lat:35.3880338,lon:-94.4265011},
+{n:"63870",c:"KD5DF",d:"443.450",city:"Forrest City",lat:35.005198,lon:-90.786539},
+{n:"64029",c:"N5ALC",d:"446.500 simplex",city:"Batesville",lat:35.767865,lon:-91.649818},
+{n:"64437",c:"AE5AU",d:"",city:"Little Rock",lat:34.743558,lon:-92.286332},
+{n:"64910",c:"N5LSN",d:"442.250+",city:"Bauxite",lat:34.5573078,lon:-92.5237975},
+{n:"65083",c:"W5LVB",d:"146.880-",city:"Hot Springs",lat:34.501296,lon:-93.043705},
+{n:"65292",c:"AI5YQ",d:"146.540",city:"Jacksonville",lat:34.8662005,lon:-92.1101458},
+{n:"65304",c:"AI5YQ",d:"445.000",city:"Jacksonville",lat:34.863251,lon:-92.106851},
+{n:"65364",c:"KE5CT",d:"445.975",city:"Clarksville",lat:35.4713108,lon:-93.4664819},
+{n:"65431",c:"KM7CT",d:"",city:"Little Rock",lat:34.747002,lon:-92.296499},
+{n:"65434",c:"KM7CT",d:"",city:"Little Rock",lat:34.750722,lon:-92.282922},
+{n:"65632",c:"K5NES",d:"147.225+",city:"Desha",lat:35.7361886,lon:-91.6798619},
+{n:"66093",c:"N5PKR",d:"",city:"Hot Springs",lat:34.498962,lon:-93.066697},
+{n:"66337",c:"KJ5IAZ",d:"",city:"Mena",lat:34.5837324,lon:-94.2376664},
+{n:"66423",c:"WX1NWA",d:"147.360",city:"Jasper",lat:36.0080624,lon:-93.1868973},
+{n:"66724",c:"AE5GH",d:"",city:"Conway",lat:35.089688,lon:-92.446712},
+{n:"68585",c:"KC5LVW",d:"",city:"Clarksville",lat:35.468361,lon:-93.463187},
+{n:"68796",c:"KJ5OQF",d:"",city:"Bella Vista",lat:36.468298,lon:-94.273845},
+{n:"68881",c:"KI5QNE",d:"",city:"Murfreeseboro",lat:34.0623308,lon:-93.6899049},
+{n:"69480",c:"N5NBJ",d:"",city:"Harrison",lat:36.226844,lon:-93.104381},
+{n:"403730",c:"NY5AR",d:"",city:"Benton",lat:34.5645372,lon:-92.5868280},
+{n:"403731",c:"NY5AR",d:"",city:"Benton",lat:34.561588,lon:-92.583533},
+{n:"403732",c:"NY5AR",d:"",city:"Benton",lat:34.565032,lon:-92.593700},
+{n:"411770",c:"KH6PRD",d:"448.305",city:"Bella Vista",lat:36.472019,lon:-94.260268},
+{n:"411771",c:"KH6PRD",d:"146.750",city:"Bella Vista",lat:36.459926,lon:-94.268672},
+{n:"450780",c:"KF5LBT",d:"Radioless Node",city:"Springdale",lat:36.183795,lon:-94.125519},
+{n:"454130",c:"W5RHS",d:"147.120",city:"Benton",lat:34.568753,lon:-92.580123},
+{n:"454131",c:"W5RHS",d:"446.120",city:"Benton",lat:34.556659,lon:-92.588527},
+{n:"454132",c:"W5RHS",d:"",city:"Benton",lat:34.572084,lon:-92.592682},
+{n:"457870",c:"K5TEL",d:"ClearNode1",city:"Russellville",lat:35.270540,lon:-93.135485},
+{n:"457871",c:"K5TEL",d:"ClearNode-2",city:"Russellville",lat:35.285964,lon:-93.139640},
+{n:"457872",c:"K5TEL",d:"438.6000",city:"Russellville",lat:35.275874,lon:-93.122247},
+{n:"457873",c:"K5TEL",d:"",city:"Russellville",lat:35.273540,lon:-93.145239},
+{n:"465021",c:"N5SEA",d:"146.640 Repeater",city:"Hamburg",lat:33.2281757,lon:-91.7976285},
+{n:"499600",c:"AA5JC",d:"146.775",city:"Little Rock",lat:34.738629,lon:-92.291326},
+{n:"499601",c:"AA5JC",d:"Central Arkansas Hub",city:"Little Rock",lat:34.754054,lon:-92.295481},
+{n:"508069",c:"W5JDW",d:"Mobile Node",city:"Greenbrier",lat:35.2339274,lon:-92.3877837},
+{n:"510543",c:"WG5EEK",d:"147.4900",city:"Tontitown",lat:36.1778565,lon:-94.2335396},
+{n:"517260",c:"KU5J",d:"",city:"North Little Rock",lat:34.766587,lon:-92.263799},
+{n:"517261",c:"KU5J",d:"Echolink",city:"North Little Rock",lat:34.770031,lon:-92.273966},
+{n:"517262",c:"KU5J",d:"DVSwitch",city:"North Little Rock",lat:34.773751,lon:-92.260389},
+{n:"547040",c:"W5TP",d:"",city:"Cave Springs",lat:36.2634109,lon:-94.2318728},
+{n:"547041",c:"W5TP",d:"",city:"Cave Springs",lat:36.260461,lon:-94.228578},
+{n:"577970",c:"K5AIN",d:"",city:"North Little Rock",lat:34.761658,lon:-92.268793},
+{n:"577971",c:"K5AIN",d:"",city:"North Little Rock",lat:34.777083,lon:-92.272949},
+{n:"591490",c:"KI5BGC",d:"145.310",city:"Wynne",lat:35.2245330,lon:-90.7867798},
+{n:"591491",c:"KI5BGC",d:"",city:"Wynne",lat:35.221584,lon:-90.783485},
+{n:"591492",c:"K5WMS",d:"",city:"Wynne",lat:35.225028,lon:-90.793652},
+{n:"599790",c:"NI5C",d:"",city:"Batesville",lat:35.771309,lon:-91.659985},
+{n:"599791",c:"NI5C",d:"444.900",city:"Batesville",lat:35.775030,lon:-91.646408},
+{n:"603900",c:"AG5QY",d:"",city:"Jonesboro",lat:35.842356,lon:-90.710384},
+{n:"603901",c:"AG5QY",d:"",city:"Jonesboro",lat:35.832265,lon:-90.692991},
+{n:"604530",c:"KI5WAY",d:"",city:"Bay",lat:35.7428864,lon:-90.5625134},
+{n:"604531",c:"KI5WAY",d:"",city:"Bay",lat:35.739937,lon:-90.559218},
+{n:"616992",c:"KE5SQC/92",d:"None",city:"Fishook",lat:34.702741,lon:-93.295848},
+{n:"625711",c:"W5STR",d:"",city:"Cabot",lat:34.971583,lon:-92.013239},
+{n:"625712",c:"W5STR",d:"224.600",city:"Saltillo",lat:35.0275870,lon:-92.3265421},
+{n:"625713",c:"W5STR",d:"",city:"Cabot",lat:34.975027,lon:-92.023406},
+{n:"625714",c:"W5STR",d:"",city:"Cabot",lat:34.978747,lon:-92.009828},
+{n:"627550",c:"WX0X",d:"",city:"Cabot",lat:34.966654,lon:-92.018233},
+{n:"627551",c:"WX0X",d:"",city:"Cabot",lat:34.982079,lon:-92.022388},
+{n:"642670",c:"W5HAR",d:"",city:"Helena",lat:34.5266746,lon:-90.5862740},
+{n:"642671",c:"W5HAR",d:"",city:"Helena",lat:34.523725,lon:-90.582979},
+{n:"642672",c:"W5HAR",d:"",city:"Helena",lat:34.527169,lon:-90.593146},
+{n:"642673",c:"W5HAR",d:"",city:"Helena",lat:34.530890,lon:-90.579569},
+{n:"642674",c:"W5HAR",d:"",city:"Helena",lat:34.518797,lon:-90.587973},
+{n:"643530",c:"KD9SK",d:"",city:"Hot Springs",lat:34.514467,lon:-93.050511},
+{n:"643531",c:"KD9SK",d:"",city:"Hot Springs",lat:34.492747,lon:-93.049660},
+{n:"643532",c:"KD9SK",d:"",city:"Hot Springs",lat:34.509201,lon:-93.069215},
+{n:"643533",c:"KD9SK",d:"",city:"Hot Springs",lat:34.507810,lon:-93.039807},
+{n:"655190",c:"W5HRP",d:"446.675",city:"Danville",lat:35.0539792,lon:-93.3935185},
+{n:"655191",c:"W5HRP",d:"",city:"Danville",lat:35.051030,lon:-93.390223},
+{n:"656440",c:"W5OLA",d:"147.210 +0.6MHz",city:"Ola",lat:35.0323119,lon:-93.2232345},
+{n:"660640",c:"KK4IOH",d:"",city:"West Memphis",lat:35.146974,lon:-90.191411},
+{n:"660641",c:"KK4IOH",d:"",city:"West Memphis",lat:35.150695,lon:-90.177834},
+{n:"660642",c:"KK4IOH",d:"",city:"West Memphis",lat:35.138602,lon:-90.186238},
+{n:"660643",c:"KK4IOH",d:"",city:"West Memphis",lat:35.154026,lon:-90.190393},
+{n:"660644",c:"KK4IOH",d:"",city:"West Memphis",lat:35.143936,lon:-90.173000},
+{n:"660645",c:"W5HAR",d:"442.875",city:"Helena",lat:34.534221,lon:-90.592128},
+{n:"679220",c:"KA5HXL",d:"",city:"Ola",lat:35.029362,lon:-93.219939},
+{n:"679221",c:"KA5HXL",d:"",city:"Ola",lat:35.032806,lon:-93.230107},
+{n:"680200",c:"KJ5LNI",d:"444.850",city:"Taylor",lat:33.1004108,lon:-93.4610066},
+{n:"680201",c:"KJ5LNI",d:"448.300",city:"Taylor",lat:33.097461,lon:-93.457712},
+{n:"680202",c:"KJ5LNI",d:"",city:"Taylor",lat:33.100905,lon:-93.467879},
+{n:"684950",c:"KI5LAW",d:"147.330 Repeater",city:"El Dorado",lat:33.2115087,lon:-92.6650144},
+{n:"684951",c:"KI5LAW",d:"444.625 Repeater",city:"El Dorado",lat:33.208559,lon:-92.661719},
+{n:"684952",c:"KI5LAW",d:"Office IP Phone",city:"El Dorado",lat:33.212003,lon:-92.671887},
+{n:"684953",c:"KI5LAW",d:"UHF Cloud Node",city:"El Dorado",lat:33.215724,lon:-92.658309},
+{n:"684954",c:"KO0LJS",d:"146.655 Repeater",city:"Willisville",lat:33.5171845,lon:-93.2986922},
+{n:"684955",c:"KC5OAS",d:"147.105 Repeater",city:"Magnolia",lat:33.2670725,lon:-93.2393341},
+{n:"685770",c:"KI5LAW",d:"VHF Home Node",city:"El Dorado",lat:33.203631,lon:-92.666714},
+{n:"685771",c:"KI5LAW",d:"Portable Hotspot",city:"El Dorado",lat:33.219055,lon:-92.670869},
+{n:"685772",c:"KI5LAW",d:"Home UHF Node",city:"El Dorado",lat:33.208965,lon:-92.653475},
+
+];
+var API='https://stats.allstarlink.org/api/stats/';
+var map=L.map('map').setView([34.85,-92.3],7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+
+// ---- County overlay (US counties, filter Arkansas FIPS 05) ----
+var countyLayer=null;
+fetch('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json')
+ .then(function(r){return r.json();})
+ .then(function(gj){
+   var ar={type:'FeatureCollection',
+     features:gj.features.filter(function(f){return String(f.id).slice(0,2)==='05';})};
+   countyLayer=L.geoJSON(ar,{
+     style:{color:'#3d5166',weight:1,fillColor:'#9bb4cc',fillOpacity:0.05,opacity:0.7},
+     onEachFeature:function(f,l){
+       l.bindTooltip(f.properties.NAME+' County',{sticky:true});
+       l.on('mouseover',function(){l.setStyle({weight:2,fillOpacity:0.15});});
+       l.on('mouseout',function(){l.setStyle({weight:1,fillOpacity:0.05});});
+     }}).addTo(map);
+   countyLayer.bringToBack();
+ }).catch(function(e){console.warn('county overlay failed',e);});
+document.getElementById('cty').addEventListener('change',function(e){
+  if(!countyLayer)return;
+  if(e.target.checked){countyLayer.addTo(map);countyLayer.bringToBack();}
+  else{map.removeLayer(countyLayer);}
+});
+
+// ---- Node markers ----
+var cluster=L.markerClusterGroup({maxClusterRadius:45,spiderfyOnMaxZoom:true});
+var recs=nodes.map(function(o){
+  var m=L.circleMarker([o.lat,o.lon],
+    {radius:7,weight:1.5,color:'#1b2a38',fillColor:'#9aa7b3',fillOpacity:0.9});
+  return {o:o,m:m,up:null,prevKu:null,keyedNow:false,lastKeyed:null,connHi:false};
+});
+var recById={}; recs.forEach(function(r){recById[String(r.o.n)]=r;});
+
+function rel(ts){var s=Math.round((Date.now()-ts)/1000);
+  if(s<60)return s+'s';var m=Math.round(s/60);if(m<60)return m+'m';return Math.round(m/60)+'h';}
+
+function styleRec(rec){
+  var up=rec.up;
+  var fill=up===null?'#9aa7b3':(up?'#2ecc55':'#e0453a');
+  var stroke='#1b2a38',w=1.5,r=7;
+  if(activityOn){
+    if(rec.keyedNow){fill='#ff3b1d';stroke='#7a0000';w=2;r=9;}
+    else if(rec.lastKeyed&&Date.now()-rec.lastKeyed<600000){stroke='#e67e22';w=3;}
+  }
+  if(rec.connHi){stroke='#f1c40f';w=4;r=Math.max(r,8);}
+  rec.m.setStyle({radius:r,weight:w,color:stroke,fillColor:fill,fillOpacity:0.9});
+  var el=rec.m.getElement&&rec.m.getElement();
+  if(el){ if(activityOn&&rec.keyedNow)el.classList.add('pulse');else el.classList.remove('pulse'); }
+}
+function popupHtml(rec){
+  var up=rec.up;
+  var badge=up===null?'<span class="badge" style="background:#7f8c8d">UNKNOWN</span>'
+    :(up?'<span class="badge" style="background:#27ae60">ONLINE</span>'
+        :'<span class="badge" style="background:#c0392b">OFFLINE</span>');
+  var act='';
+  if(rec.keyedNow)act='<br><b style="color:#ff3b1d">&#128308; ON AIR now</b>';
+  else if(rec.lastKeyed)act='<br>Last keyed '+rel(rec.lastKeyed)+' ago <span style="color:#999">(observed)</span>';
+  else if(activityOn)act='<br><span style="color:#999">no activity observed yet</span>';
+  return '<span class="nn">Node '+rec.o.n+'</span> '+badge+'<br><b>'+rec.o.c+'</b><br>'+
+    (rec.o.d?rec.o.d+'<br>':'')+rec.o.city+', AR'+act+
+    '<br><a href="#" onclick="showConn(\''+rec.o.n+'\');return false;">&#9654; open this node&#39;s connections</a>'+
+    '<br><a href="https://stats.allstarlink.org/stats/'+rec.o.n+'" target="_blank">stats &#8599;</a>';
+}
+recs.forEach(function(rec){
+  rec.m.bindPopup(popupHtml(rec));
+  rec.m.bindTooltip(rec.o.n+' · '+rec.o.c);
+});
+
+var curFilter='all';
+function applyFilter(){
+  cluster.clearLayers();
+  var add=[];
+  recs.forEach(function(rec){
+    if(curFilter==='on'&&rec.up!==true)return;
+    if(curFilter==='off'&&rec.up!==false)return;
+    add.push(rec.m);
+  });
+  cluster.addLayers(add);
+}
+map.addLayer(cluster);
+applyFilter();
+map.fitBounds(L.latLngBounds(recs.map(function(r){return r.m.getLatLng();})).pad(0.08));
+document.querySelectorAll('input[name=flt]').forEach(function(r){
+  r.addEventListener('change',function(e){curFilter=e.target.value;applyFilter();});
+});
+
+// ---- Live online/offline status (script tag => no CORS) ----
+function setStatus(onlineSet){
+  var on=0,off=0;
+  recs.forEach(function(rec){
+    var up=onlineSet.has(String(rec.o.n));rec.up=up;up?on++:off++;
+    styleRec(rec);rec.m.setPopupContent(popupHtml(rec));
+  });
+  document.getElementById('cOn').textContent=on;
+  document.getElementById('cOff').textContent=off;
+  document.getElementById('updated').textContent='Live · updated '+new Date().toLocaleTimeString();
+  applyFilter();
+}
+function refreshStatus(){
+  var s=document.createElement('script');
+  s.src='https://allstarmap.org/all_online_nodes.js?_='+Date.now();
+  s.onload=function(){
+    try{var set=new Set((window.g_online_nodes||[]).map(function(o){return String(o.id);}));setStatus(set);}
+    catch(e){console.warn('status parse failed',e);}
+    s.remove();
+  };
+  s.onerror=function(){document.getElementById('updated').textContent='status feed unreachable — retrying…';s.remove();};
+  document.body.appendChild(s);
+}
+refreshStatus();
+setInterval(refreshStatus,60000);
+
+// ---- Last-keyed activity (polls online nodes' stats, staggered) ----
+var activityOn=false,activityTimer=null;
+function fetchKey(rec){
+  fetch(API+rec.o.n).then(function(r){return r.json();}).then(function(j){
+    var d=j&&j.stats&&j.stats.data; if(!d)return;
+    var ku=parseInt(d.totalkeyups,10);
+    var keyed=(d.keyed===true||d.keyed==='true');
+    if(rec.prevKu!=null&&!isNaN(ku)&&ku>rec.prevKu)rec.lastKeyed=Date.now();
+    if(keyed)rec.lastKeyed=Date.now();
+    if(!isNaN(ku))rec.prevKu=ku;
+    rec.keyedNow=keyed;
+    styleRec(rec);rec.m.setPopupContent(popupHtml(rec));
+    updateActivityInfo();
+  }).catch(function(){});
+}
+function updateActivityInfo(){
+  if(!activityOn){document.getElementById('actInfo').textContent='';return;}
+  var air=0,act=0,now=Date.now();
+  recs.forEach(function(r){if(r.keyedNow)air++;else if(r.lastKeyed&&now-r.lastKeyed<600000)act++;});
+  document.getElementById('actInfo').textContent='On air: '+air+'  ·  active last 10m: '+act;
+}
+function activityCycle(){
+  if(!activityOn)return;
+  var list=recs.filter(function(r){return r.up===true;});
+  list.forEach(function(rec,i){setTimeout(function(){if(activityOn)fetchKey(rec);},i*900);});
+  updateActivityInfo();
+  activityTimer=setTimeout(activityCycle,Math.max(60000,list.length*900+8000));
+}
+document.getElementById('act').addEventListener('change',function(e){
+  activityOn=e.target.checked;
+  if(activityOn){document.getElementById('actInfo').textContent='polling key-up activity…';activityCycle();}
+  else{
+    if(activityTimer)clearTimeout(activityTimer);
+    recs.forEach(function(r){r.keyedNow=false;styleRec(r);r.m.setPopupContent(popupHtml(r));});
+    document.getElementById('actInfo').textContent='';
+  }
+});
+
+// ---- Connection inspector (65017 button + any-node input box + back history) ----
+var connNode=null,connLayer=null,connHist=[];
+function validLL(la,lo){return !isNaN(la)&&!isNaN(lo)&&la>=-90&&la<=90&&lo>=-180&&lo<=180&&(Math.abs(la)>0.05||Math.abs(lo)>0.05);}
+function setConnBtnLabel(){
+  document.getElementById('connBtn').textContent=
+    (connNode==='65017')?'Hide node 65017 connections':'Show node 65017 connections';
+}
+function updateBackBtn(){
+  var b=document.getElementById('connBack');
+  b.disabled=!connHist.length;
+  b.innerHTML='&#9664; Back'+(connHist.length?' ('+connHist.length+')':'');
+}
+function removeConnLayer(){
+  if(connLayer){map.removeLayer(connLayer);connLayer=null;}
+  recs.forEach(function(r){if(r.connHi){r.connHi=false;styleRec(r);}});
+  var cl=document.getElementById('connList');cl.style.display='none';cl.innerHTML='';
+  connNode=null;setConnBtnLabel();
+}
+function clearConn(){removeConnLayer();connHist=[];updateBackBtn();}
+function showConn(id,fromBack){
+  id=String(id==null?'':id).trim();
+  var cl=document.getElementById('connList');
+  if(!/^[0-9]+$/.test(id)){cl.style.display='block';cl.innerHTML='Enter a numeric AllStar node number.';return;}
+  if(!fromBack&&connNode&&connNode!==id)connHist.push(connNode);
+  removeConnLayer();
+  connNode=id;setConnBtnLabel();updateBackBtn();
+  cl.style.display='block';cl.innerHTML='loading '+id+' connections…';
+  fetch(API+id).then(function(r){return r.json();}).then(function(j){
+    var d=j&&j.stats&&j.stats.data; var ln=(d&&d.linkedNodes)||[];
+    connLayer=L.layerGroup().addTo(map);
+    // hub position: the inspected node's own coords (centroid if on-map, else its registry coords), else central AR
+    var hub=[34.72,-92.35], hubName='';
+    var self=recById[id];
+    if(self){var sl=self.m.getLatLng();hub=[sl.lat,sl.lng];hubName=self.o.c+' — '+self.o.city+', AR';}
+    ln.forEach(function(x){if(String(x.name)===id){
+      if(!hubName)hubName=((x.callsign||'')+' '+((x.server&&x.server.Location)||'')).trim();
+      if(!self&&x.server){var la=parseFloat(x.server.Latitude),lo=parseFloat(x.server.Logitude);if(validLL(la,lo))hub=[la,lo];}
+    }});
+    var rows=[],bounds=[hub],seen={};
+    ln.forEach(function(x){
+      var nid=String(x.name); if(nid===id||seen[nid])return; seen[nid]=1;
+      var call=((x.callsign||x.User_ID||'')+'').trim();
+      var loc=(x.server&&x.server.Location)||'';
+      var rec=recById[nid];
+      if(rec){
+        var ll=rec.m.getLatLng();
+        rec.connHi=true;styleRec(rec);
+        L.polyline([hub,[ll.lat,ll.lng]],{color:'#f1c40f',weight:2,opacity:.85,dashArray:'4 4'}).addTo(connLayer);
+        bounds.push([ll.lat,ll.lng]);
+        rows.push('<b>'+nid+'</b> '+call+' — '+loc+' <span style="color:#2ecc55">on map</span>');
+      }else{
+        var la=parseFloat(x.server&&x.server.Latitude),lo=parseFloat(x.server&&x.server.Logitude);
+        var valid=validLL(la,lo), inAR=valid&&la>32&&la<37.6&&lo<-89&&lo>-95;
+        if(valid){
+          var col=inAR?'#a569bd':'#16a085', dk=inAR?'#6c3483':'#0e6655';
+          var tag=inAR?'AR (not in directory)':'OUT OF STATE';
+          var mk=L.circleMarker([la,lo],{radius:7,weight:2,color:dk,fillColor:col,fillOpacity:.9}).addTo(connLayer);
+          mk.bindPopup('<b>Node '+nid+'</b> '+call+'<br>'+loc+'<br><i>connected to '+id+' — '+tag+'</i>'+
+            '<br><a href="#" onclick="showConn(\''+nid+'\');return false;">&#9654; open this node&#39;s connections</a>');
+          mk.bindTooltip(nid+' · '+call);
+          L.polyline([hub,[la,lo]],{color:col,weight:2,opacity:.75,dashArray:'4 4'}).addTo(connLayer);
+          bounds.push([la,lo]);
+          rows.push('<b>'+nid+'</b> '+call+' — '+loc+' <span style="color:'+col+'">'+(inAR?'plotted':'out of state')+'</span>');
+        }else{
+          rows.push('<b>'+nid+'</b> '+call+' — '+(loc||'location n/a')+' <span style="color:#9aa7b3">no coords</span>');
+        }
+      }
+    });
+    var hubMk=L.marker(hub).addTo(connLayer);
+    hubMk.bindPopup('<b>Node '+id+'</b>'+(hubName?'<br>'+hubName:'')+'<br>'+rows.length+' nodes connected').openPopup();
+    if(bounds.length>1)map.fitBounds(L.latLngBounds(bounds).pad(0.25));
+    cl.innerHTML='<b>'+id+' — '+rows.length+' connected</b>'+(hubName?' <span style="color:#9fb3c8">('+hubName+')</span>':'')+
+      (rows.length?'<br>'+rows.join('<br>'):'<br><i>no active connections (node may be offline)</i>');
+  }).catch(function(){cl.innerHTML='Failed to load connections for node '+id+'.';});
+}
+document.getElementById('connBtn').addEventListener('click',function(){
+  if(connNode==='65017')clearConn(); else showConn('65017');
+});
+document.getElementById('connGo').addEventListener('click',function(){showConn(document.getElementById('connInput').value);});
+document.getElementById('connInput').addEventListener('keydown',function(e){if(e.key==='Enter')showConn(this.value);});
+document.getElementById('connClr').addEventListener('click',function(){clearConn();document.getElementById('connInput').value='';});
+document.getElementById('connBack').addEventListener('click',function(){if(connHist.length)showConn(connHist.pop(),true);});
+
+// ---- High-impact warning polygons (NWS): CONSIDERABLE / PDS / EMERGENCY / CATASTROPHIC ----
+var warnOn=false,warnLayer=null,warnTimer=null,warnSeen={},warnMuted=false,warnAudio=null,watchExtra=[];
+var WX_AREA='AR,MO,OK,TX,LA,MS,TN';   // Arkansas + bordering states
+// Watch list: ALL Arkansas counties by default (SAME 005xxx / ", AR"), plus user-added out-of-state counties.
+function normCounty(s){return s.toUpperCase().replace(/\b(COUNTY|PARISH)\b/g,'').replace(/\s+/g,' ').replace(/\s*,\s*/g,', ').trim();}
+function inWatch(pr){
+  var same=(pr.geocode&&pr.geocode.SAME)||[];
+  for(var i=0;i<same.length;i++){if(/^005/.test(same[i]))return true;}   // any Arkansas county
+  var area=(pr.areaDesc||'').toUpperCase();
+  if(/,\s*AR\b/.test(area))return true;
+  for(var j=0;j<watchExtra.length;j++){if(area.indexOf(watchExtra[j])>=0)return true;}
+  return false;
+}
+function renderWatchChips(){
+  var el=document.getElementById('watchList');
+  el.innerHTML=watchExtra.map(function(c,i){return '<span class="chip">'+c+'<span class="chipx" data-i="'+i+'">&times;</span></span>';}).join('');
+  [].forEach.call(el.querySelectorAll('.chipx'),function(x){x.onclick=function(){watchExtra.splice(+x.getAttribute('data-i'),1);renderWatchChips();};});
+}
+document.getElementById('watchAdd').addEventListener('click',function(){
+  var v=document.getElementById('watchInput').value.trim();
+  if(!v)return;
+  var n=normCounty(v);
+  if(n&&watchExtra.indexOf(n)<0)watchExtra.push(n);
+  document.getElementById('watchInput').value='';renderWatchChips();
+});
+document.getElementById('watchInput').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('watchAdd').click();});
+function classifyWarn(p){
+  var par=p.parameters||{};
+  function v(k){return ((par[k]||[]).join(',')||'').toUpperCase();}
+  var td=v('tornadoDamageThreat'),st=v('thunderstormDamageThreat'),fd=v('flashFloodDamageThreat');
+  var txt=((p.description||'')+' '+(p.headline||'')+' '+((par.NWSheadline||[]).join(' '))).toUpperCase();
+  var tags=[];
+  if(td.indexOf('CATASTROPHIC')>=0||fd.indexOf('CATASTROPHIC')>=0)tags.push('CATASTROPHIC');
+  if(txt.indexOf('TORNADO EMERGENCY')>=0||txt.indexOf('FLASH FLOOD EMERGENCY')>=0)tags.push('EMERGENCY');
+  if(st.indexOf('DESTRUCTIVE')>=0)tags.push('DESTRUCTIVE');
+  if(txt.indexOf('PARTICULARLY DANGEROUS SITUATION')>=0)tags.push('PDS');
+  if(td.indexOf('CONSIDERABLE')>=0||st.indexOf('CONSIDERABLE')>=0||fd.indexOf('CONSIDERABLE')>=0)tags.push('CONSIDERABLE');
+  return tags;
+}
+function warnColor(tags){
+  if(tags.indexOf('CATASTROPHIC')>=0||tags.indexOf('EMERGENCY')>=0)return '#c0009b';
+  if(tags.indexOf('DESTRUCTIVE')>=0)return '#b30000';
+  if(tags.indexOf('PDS')>=0)return '#e8491d';
+  return '#f39c12';
+}
+var WARN_TITLE='Arkansas AllStarLink Nodes — Live';
+function warnBeep(){
+  if(warnMuted||!warnAudio)return;
+  try{
+    var ctx=warnAudio,t=ctx.currentTime;
+    [880,660,880,660,990].forEach(function(f,i){
+      var o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='square';o.frequency.value=f;o.connect(g);g.connect(ctx.destination);
+      var s=t+i*0.3;
+      g.gain.setValueAtTime(0.0001,s);
+      g.gain.exponentialRampToValueAtTime(0.3,s+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,s+0.27);
+      o.start(s);o.stop(s+0.28);
+    });
+  }catch(e){}
+}
+function flashTitle(msg){
+  clearInterval(window.__warnTitle);var n=0;
+  window.__warnTitle=setInterval(function(){document.title=(n%2)?msg:WARN_TITLE;if(++n>24){clearInterval(window.__warnTitle);document.title=WARN_TITLE;}},700);
+}
+function triggerWarnAlert(news){
+  warnBeep();
+  var first=news[0];
+  var msg=news.length+' NEW high-impact warning'+(news.length>1?'s':'')+': '+first.event+' — '+
+          first.tags.join(' · ')+' ('+first.area+')'+(news.length>1?'  +'+(news.length-1)+' more':'');
+  var b=document.getElementById('warnAlert');
+  b.innerHTML='&#9888; '+msg+' <span id="warnAlertX">&times;</span>';
+  b.style.display='block';b.className='show';
+  document.getElementById('warnAlertX').onclick=function(){b.style.display='none';clearInterval(window.__warnTitle);document.title=WARN_TITLE;};
+  var fl=document.getElementById('warnFlash');fl.classList.remove('active');void fl.offsetWidth;fl.classList.add('active');
+  flashTitle('⚠ NEW WARNING');
+  try{if(window.Notification&&Notification.permission==='granted')new Notification('High-impact weather warning',{body:msg});}catch(e){}
+  clearTimeout(window.__warnHide);window.__warnHide=setTimeout(function(){b.style.display='none';},20000);
+}
+function renderWarnings(feats){
+  if(warnLayer){map.removeLayer(warnLayer);}
+  warnLayer=L.featureGroup().addTo(map);
+  var shown=0,wc=0,byTier={},news=[];
+  (feats||[]).forEach(function(f){
+    if(!f.geometry)return;
+    var pr=f.properties||{};
+    var tags=classifyWarn(pr); if(!tags.length)return;
+    var col=warnColor(tags); shown++;
+    var watched=inWatch(pr); if(watched)wc++;
+    tags.forEach(function(t){byTier[t]=(byTier[t]||0)+1;});
+    var id=f.id||pr.id||((pr.event||'')+'|'+(pr.areaDesc||''));
+    if(!warnSeen[id]){warnSeen[id]=1;news.push({id:id,event:pr.event||'Warning',tags:tags,area:(pr.areaDesc||'').split(';')[0],watched:watched});}
+    var exp=pr.expires?new Date(pr.expires).toLocaleString():'';
+    var st=watched?{color:col,weight:2,fillColor:col,fillOpacity:0.25}
+                  :{color:col,weight:1,fillColor:col,fillOpacity:0.08,dashArray:'5 5'};
+    L.geoJSON(f.geometry,{style:st})
+      .bindPopup('<b>'+(pr.event||'Warning')+'</b><br><b style="color:'+col+'">'+tags.join(' &middot; ')+
+        '</b><br>'+(pr.areaDesc||'')+'<br><span style="color:#777">expires '+exp+'</span>'+
+        (watched?'':'<br><i style="color:#999">outside watch list — no alarm</i>'))
+      .addTo(warnLayer);
+  });
+  var info=document.getElementById('warnInfo');
+  if(shown){
+    var parts=Object.keys(byTier).map(function(k){return k.toLowerCase()+':'+byTier[k];});
+    info.innerHTML='<b>'+shown+'</b> active, <b>'+wc+'</b> in watch ('+parts.join(', ')+') &middot; '+new Date().toLocaleTimeString();
+    try{map.fitBounds(warnLayer.getBounds().pad(0.2));}catch(e){}
+  }else{info.textContent='none active (AR + neighbors) · '+new Date().toLocaleTimeString();}
+  var newsW=news.filter(function(w){return w.watched;});
+  if(newsW.length&&warnOn)triggerWarnAlert(newsW);
+  return shown;
+}
+function loadWarnings(){
+  fetch('https://api.weather.gov/alerts/active?area='+WX_AREA,{headers:{'Accept':'application/geo+json'}})
+   .then(function(r){return r.json();})
+   .then(function(j){renderWarnings(j.features);})
+   .catch(function(e){document.getElementById('warnInfo').textContent='weather feed error';});
+}
+document.getElementById('warnMute').addEventListener('change',function(e){warnMuted=e.target.checked;});
+document.getElementById('warnBtn').addEventListener('click',function(){
+  warnOn=!warnOn; this.classList.toggle('on',warnOn);
+  if(warnOn){
+    try{warnAudio=warnAudio||new (window.AudioContext||window.webkitAudioContext)();if(warnAudio.state==='suspended')warnAudio.resume();}catch(e){}
+    try{if(window.Notification&&Notification.permission==='default')Notification.requestPermission();}catch(e){}
+    document.getElementById('warnInfo').textContent='loading NWS alerts…';loadWarnings();warnTimer=setInterval(loadWarnings,90000);
+  }else{
+    if(warnTimer)clearInterval(warnTimer);
+    if(warnLayer){map.removeLayer(warnLayer);warnLayer=null;}
+    document.getElementById('warnInfo').textContent='';
+    var b=document.getElementById('warnAlert');if(b)b.style.display='none';
+    clearInterval(window.__warnTitle);document.title=WARN_TITLE;
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+name: Rebuild AR AllStar map
+
+# Runs daily and on manual trigger. Re-pulls the AllStarLink registry,
+# geocodes any newly-registered cities, regenerates index.html, and commits
+# the result. If your DigitalOcean App Platform app has deploy-on-push enabled,
+# the commit triggers an automatic redeploy.
+
+on:
+  schedule:
+    - cron: '17 8 * * *'   # daily at 08:17 UTC (~02:17 CST / 03:17 CDT)
+  workflow_dispatch: {}      # allow manual "Run workflow" button
+
+permissions:
+  contents: write            # needed to commit the regenerated file
+
+concurrency:
+  group: rebuild
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build map
+        env:
+          # Set this repo secret to your contact (email or URL) so Nominatim/NWS
+          # see an identifying User-Agent. Falls back to a default if unset.
+          CONTACT_UA: ${{ secrets.CONTACT_UA }}
+        run: bash scripts/build.sh
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "ar-allstar-map-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html data/city_coords.txt
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Auto-rebuild node map ($(date -u +%Y-%m-%d))"
+            git push
+          fi

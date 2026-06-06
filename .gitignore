@@ -1,0 +1,5 @@
+# Transient build artifacts (regenerated every build). The geocode cache
+# data/city_coords.txt is intentionally NOT ignored — it must be committed.
+data/allmondb.txt
+data/ar_nodes.txt
+data/cities.txt

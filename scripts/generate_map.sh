@@ -168,13 +168,16 @@ var AGIO='https://gis.arkansas.gov/arcgis/rest/services/';
 var map=L.map('map').setView([34.85,-92.3],7);
 
 // ---- Basemaps: two from Arkansas GIS (toggleable) + OSM fallback ----
+// AR GIS aerial is a CACHED tile service (Web Mercator/3857) -> light as OSM, so
+// it can be the default base without the renderer-starving that the dynamic esri
+// layers caused. topo stays the (heavier) dynamic service on the toggle only.
+var aerial=L.tileLayer(AGIO+'ImageServices/IMAGERY_9IN_2023/ImageServer/tile/{z}/{y}/{x}',
+  {maxZoom:19,attribution:'Imagery: Arkansas GIS (AGIO)'}).addTo(map);
 var osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  {maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+  {maxZoom:19,attribution:'&copy; OpenStreetMap'});
 var topo=L.esri.dynamicMapLayer({url:AGIO+'Apps/Basemap_Dynamic/MapServer',
   attribution:'Basemap: Arkansas GIS (AGIO)'});
-var aerial=L.esri.imageMapLayer({url:AGIO+'ImageServices/IMAGERY_9IN_2023/ImageServer',
-  attribution:'Imagery: Arkansas GIS (AGIO)'});
-L.control.layers({'OpenStreetMap':osm,'AR GIS — topo/streets':topo,'AR GIS — aerial imagery':aerial},
+L.control.layers({'AR GIS — aerial imagery':aerial,'OpenStreetMap':osm,'AR GIS — topo/streets':topo},
   null,{position:'topright',collapsed:true}).addTo(map);
 
 // ---- County overlay + point-in-Arkansas test (Arkansas GIS COUNTY_BOUNDARY) ----

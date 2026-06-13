@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Arkansas AllStar node map: live status, county overlay, last-keyed activity, 65017 connections.
+# Arkansas AUXCOMM Nodemap: live nodes (real coords from the AllStarLink feed),
+# Arkansas GIS basemaps + counties, live transmit (keyed) coloring, connection
+# inspector, and NWS high-impact warning watchboard with alarms.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 COORDS="${COORDS:-$HERE/../data/city_coords.txt}"
@@ -17,10 +19,14 @@ DATA=""
 missing=0; total=0
 while IFS='|' read -r node call desc loc; do
   total=$((total+1))
-  city=$(printf '%s' "$loc" | sed -E 's/, ?AR$//; s/^ +//; s/ +$//')
-  lat="${LAT[$city]:-}"; lon="${LON[$city]:-}"
+  # canonical city key (UPPER, state stripped, spaces squeezed) — must match build.sh
+  citykey=$(printf '%s' "$loc" | tr '[:lower:]' '[:upper:]' \
+    | sed -E 's/[[:space:]]*,?[[:space:]]*(AR|ARKANSAS)[[:space:]]*$//; s/[[:space:]]+/ /g; s/^ //; s/ $//')
+  lat="${LAT[$citykey]:-}"; lon="${LON[$citykey]:-}"
   if [ -z "$lat" ]; then missing=$((missing+1)); continue; fi
-  k=${SEEN[$city]:-0}; SEEN[$city]=$((k+1))
+  # display name: Title Case of the canonical key
+  city=$(printf '%s' "$citykey" | awk '{for(i=1;i<=NF;i++)$i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')
+  k=${SEEN[$citykey]:-0}; SEEN[$citykey]=$((k+1))
   read jlat jlon < <(awk -v la="$lat" -v lo="$lon" -v k="$k" 'BEGIN{
     if(k==0){print la, lo} else {
       ang=k*2.399963; r=0.004*sqrt(k);
@@ -39,7 +45,7 @@ cat > "$OUT" <<HTML
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Arkansas AllStarLink Nodes — Live</title>
+<title>Arkansas AUXCOMM Nodemap — Live</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
@@ -106,8 +112,8 @@ cat > "$OUT" <<HTML
 </head>
 <body>
 <div class="panel">
-  <h1>Arkansas AllStarLink Nodes</h1>
-  <p><b>$mapped</b> registered nodes · live status from AllStarLink</p>
+  <h1>Arkansas AUXCOMM Nodemap</h1>
+  <p>Live AllStarLink nodes · positions &amp; status from AllStarLink · basemap &amp; counties from Arkansas GIS</p>
   <p><span class="stat"><span class="dot on"></span>Online: <span id="cOn">…</span></span>
      <span class="stat"><span class="dot off"></span>Offline: <span id="cOff">…</span></span></p>
   <div class="filters">Show:
@@ -117,7 +123,7 @@ cat > "$OUT" <<HTML
     <label style="margin-left:6px"><input type="checkbox" id="cty" checked> Counties</label>
   </div>
   <div class="filters">
-    <label><input type="checkbox" id="act"> <b>Last-keyed activity</b>
+    <label><input type="checkbox" id="act"> <b>Live transmit (keyed)</b>
       <span class="dot air"></span>on air <span class="dot act"></span>active(10m)</label>
   </div>
   <p id="actInfo"></p>
@@ -140,61 +146,76 @@ cat > "$OUT" <<HTML
     <button id="watchAdd">Add</button>
   </div>
   <div id="watchList"></div>
-  <p id="updated">loading live status…</p>
-  <p style="color:#7c93aa;font-size:10.5px">Live status auto-refresh 60s ·
-     Activity = key-ups observed since you opened this page (AllStarLink updates ~60s).</p>
-  <div class="disclaimer">&#9888; Node positions are derived from AllStarLink <b>registry data</b> —
-     registered city centroids for Arkansas nodes and operator-registered coordinates for inspected nodes —
-     <b>not the actual physical repeater/antenna locations</b>. Treat all positions as approximate.</div>
+  <p id="updated">loading live feed…</p>
+  <p style="color:#7c93aa;font-size:10.5px">Nodes &amp; transmit refresh ~60s (AllStarLink updates ~60s, so keyed is near- not instant-real-time).</p>
+  <div class="disclaimer">&#9888; Online node positions are the operator-registered coordinates from AllStarLink;
+     offline nodes fall back to their registered city center — <b>neither is guaranteed to be the physical
+     antenna site</b>. A single node may also front an RF-linked multi-repeater system, so this is a
+     <b>node</b> map, not an RF-coverage map.</div>
 </div>
 <div id="map"></div>
 <div id="warnFlash"></div>
 <div id="warnAlert"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
 <script>
 var nodes=[
 $DATA
 ];
 var API='https://stats.allstarlink.org/api/stats/';
+var AGIO='https://gis.arkansas.gov/arcgis/rest/services/';
 var map=L.map('map').setView([34.85,-92.3],7);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  {maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
 
-// ---- County overlay (US counties, filter Arkansas FIPS 05) ----
-var countyLayer=null;
-fetch('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json')
+// ---- Basemaps: two from Arkansas GIS (toggleable) + OSM fallback ----
+var osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+var topo=L.esri.dynamicMapLayer({url:AGIO+'Apps/Basemap_Dynamic/MapServer',
+  attribution:'Basemap: Arkansas GIS (AGIO)'});
+var aerial=L.esri.imageMapLayer({url:AGIO+'ImageServices/IMAGERY_9IN_2023/ImageServer',
+  attribution:'Imagery: Arkansas GIS (AGIO)'});
+L.control.layers({'OpenStreetMap':osm,'AR GIS — topo/streets':topo,'AR GIS — aerial imagery':aerial},
+  null,{position:'topright',collapsed:true}).addTo(map);
+
+// ---- County overlay + point-in-Arkansas test (Arkansas GIS COUNTY_BOUNDARY) ----
+var countyLayer=null, arPolys=[], arReady=false;
+function ringHas(ring,x,y){var inside=false;
+  for(var i=0,j=ring.length-1;i<ring.length;j=i++){
+    var xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    if(((yi>y)!=(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))inside=!inside;}
+  return inside;}
+function pointInAR(lat,lon){for(var p=0;p<arPolys.length;p++){if(ringHas(arPolys[p],lon,lat))return true;}return false;}
+fetch(AGIO+'FEATURESERVICES/Boundaries/MapServer/48/query?where=1%3D1&outFields=*&returnGeometry=true&maxAllowableOffset=0.004&geometryPrecision=4&outSR=4326&f=geojson')
  .then(function(r){return r.json();})
  .then(function(gj){
-   var ar={type:'FeatureCollection',
-     features:gj.features.filter(function(f){return String(f.id).slice(0,2)==='05';})};
-   countyLayer=L.geoJSON(ar,{
-     style:{color:'#3d5166',weight:1,fillColor:'#9bb4cc',fillOpacity:0.05,opacity:0.7},
+   countyLayer=L.geoJSON(gj,{
+     style:function(){return {color:'#3d5166',weight:1,fillColor:'#9bb4cc',fillOpacity:0.05,opacity:0.75};},
      onEachFeature:function(f,l){
-       l.bindTooltip(f.properties.NAME+' County',{sticky:true});
+       var p=f.properties||{},nm='';
+       ['COUNTY_NAME','NAME','County','COUNTYNAME','county','NAME10'].forEach(function(k){if(!nm&&p[k])nm=p[k];});
+       if(!nm){for(var k in p){if(/name/i.test(k)&&p[k]){nm=String(p[k]);break;}}}
+       nm=String(nm).replace(/county/i,'').trim();
+       l.bindTooltip((nm||'County')+' County',{sticky:true});
        l.on('mouseover',function(){l.setStyle({weight:2,fillOpacity:0.15});});
        l.on('mouseout',function(){l.setStyle({weight:1,fillOpacity:0.05});});
      }}).addTo(map);
    countyLayer.bringToBack();
- }).catch(function(e){console.warn('county overlay failed',e);});
+   (gj.features||[]).forEach(function(f){var g=f.geometry; if(!g)return;
+     if(g.type==='Polygon')arPolys.push(g.coordinates[0]);
+     else if(g.type==='MultiPolygon')g.coordinates.forEach(function(pp){arPolys.push(pp[0]);});});
+   arReady=true;
+ }).catch(function(e){console.warn('county/AR boundary load failed',e);});
 document.getElementById('cty').addEventListener('change',function(e){
   if(!countyLayer)return;
   if(e.target.checked){countyLayer.addTo(map);countyLayer.bringToBack();}
   else{map.removeLayer(countyLayer);}
 });
 
-// ---- Node markers ----
+// ---- Node markers (baked registry = offline fallback; live feed adds real coords) ----
 var cluster=L.markerClusterGroup({maxClusterRadius:45,spiderfyOnMaxZoom:true});
-var recs=nodes.map(function(o){
-  var m=L.circleMarker([o.lat,o.lon],
-    {radius:7,weight:1.5,color:'#1b2a38',fillColor:'#9aa7b3',fillOpacity:0.9});
-  return {o:o,m:m,up:null,prevKu:null,keyedNow:false,lastKeyed:null,connHi:false};
-});
-var recById={}; recs.forEach(function(r){recById[String(r.o.n)]=r;});
-
+var recById={};
 function rel(ts){var s=Math.round((Date.now()-ts)/1000);
   if(s<60)return s+'s';var m=Math.round(s/60);if(m<60)return m+'m';return Math.round(m/60)+'h';}
-
 function styleRec(rec){
   var up=rec.up;
   var fill=up===null?'#9aa7b3':(up?'#2ecc55':'#e0453a');
@@ -216,17 +237,19 @@ function popupHtml(rec){
   var act='';
   if(rec.keyedNow)act='<br><b style="color:#ff3b1d">&#128308; ON AIR now</b>';
   else if(rec.lastKeyed)act='<br>Last keyed '+rel(rec.lastKeyed)+' ago <span style="color:#999">(observed)</span>';
-  else if(activityOn)act='<br><span style="color:#999">no activity observed yet</span>';
+  var pos=rec.hasReal?'':' <span style="color:#999">(approx city center)</span>';
   return '<span class="nn">Node '+rec.o.n+'</span> '+badge+'<br><b>'+rec.o.c+'</b><br>'+
-    (rec.o.d?rec.o.d+'<br>':'')+rec.o.city+', AR'+act+
+    (rec.o.d?rec.o.d+'<br>':'')+rec.o.city+pos+act+
     '<br><a href="#" onclick="showConn(\''+rec.o.n+'\');return false;">&#9654; open this node&#39;s connections</a>'+
     '<br><a href="https://stats.allstarlink.org/stats/'+rec.o.n+'" target="_blank">stats &#8599;</a>';
 }
-recs.forEach(function(rec){
-  rec.m.bindPopup(popupHtml(rec));
-  rec.m.bindTooltip(rec.o.n+' · '+rec.o.c);
-});
-
+function makeRec(o){
+  var m=L.circleMarker([o.lat,o.lon],{radius:7,weight:1.5,color:'#1b2a38',fillColor:'#9aa7b3',fillOpacity:0.9});
+  var rec={o:o,m:m,up:null,prevKu:null,keyedNow:false,lastKeyed:null,connHi:false,hasReal:false};
+  m.bindPopup(function(){return popupHtml(rec);}); m.bindTooltip(o.n+' · '+o.c);
+  recById[String(o.n)]=rec; return rec;
+}
+var recs=nodes.map(makeRec);
 var curFilter='all';
 function applyFilter(){
   cluster.clearLayers();
@@ -240,38 +263,48 @@ function applyFilter(){
 }
 map.addLayer(cluster);
 applyFilter();
-map.fitBounds(L.latLngBounds(recs.map(function(r){return r.m.getLatLng();})).pad(0.08));
+if(recs.length)map.fitBounds(L.latLngBounds(recs.map(function(r){return r.m.getLatLng();})).pad(0.08));
 document.querySelectorAll('input[name=flt]').forEach(function(r){
   r.addEventListener('change',function(e){curFilter=e.target.value;applyFilter();});
 });
 
-// ---- Live online/offline status (script tag => no CORS) ----
-function setStatus(onlineSet){
-  var on=0,off=0;
-  recs.forEach(function(rec){
-    var up=onlineSet.has(String(rec.o.n));rec.up=up;up?on++:off++;
-    styleRec(rec);rec.m.setPopupContent(popupHtml(rec));
+// ---- Live feed: presence + REAL coordinates (script tag => no CORS) ----
+var feedOk=false;
+function applyFeed(feed){
+  feed=feed||[];
+  if(feed.length)feedOk=true;
+  var onlineIds={};
+  feed.forEach(function(o){onlineIds[String(o.id)]=1;});
+  feed.forEach(function(o){
+    var lat=parseFloat(o.lat),lon=parseFloat(o.lon);
+    if(isNaN(lat)||isNaN(lon))return;
+    if(!(lat>32.9&&lat<36.75&&lon>-94.85&&lon<-89.5))return;          // cheap AR bbox prefilter
+    var id=String(o.id),rec=recById[id];
+    if(rec){
+      if(validLL(lat,lon)){rec.o.lat=lat;rec.o.lon=lon;rec.hasReal=true;rec.m.setLatLng([lat,lon]);}
+      if(o.freq&&(!rec.o.d||rec.o.d==='TBD'))rec.o.d=o.freq;
+      if(o.call&&!rec.o.c)rec.o.c=o.call;
+    }else if(arReady&&pointInAR(lat,lon)){                            // online node not in registry, truly in AR
+      var no={n:id,c:(o.call||'').trim(),d:(o.freq||'').trim(),city:(o.name||'').trim()||'(online node)',lat:lat,lon:lon};
+      rec=makeRec(no);rec.hasReal=true;recs.push(rec);
+    }
   });
+  var on=0,off=0;
+  recs.forEach(function(rec){rec.up=!!onlineIds[String(rec.o.n)];rec.up?on++:off++;styleRec(rec);});
   document.getElementById('cOn').textContent=on;
   document.getElementById('cOff').textContent=off;
   document.getElementById('updated').textContent='Live · updated '+new Date().toLocaleTimeString();
   applyFilter();
 }
-function refreshStatus(){
+function refreshFeed(){
   var s=document.createElement('script');
   s.src='https://allstarmap.org/all_online_nodes.js?_='+Date.now();
-  s.onload=function(){
-    try{var set=new Set((window.g_online_nodes||[]).map(function(o){return String(o.id);}));setStatus(set);}
-    catch(e){console.warn('status parse failed',e);}
-    s.remove();
-  };
-  s.onerror=function(){document.getElementById('updated').textContent='status feed unreachable — retrying…';s.remove();};
+  s.onload=function(){try{applyFeed(window.g_online_nodes||[]);}catch(e){console.warn('feed parse failed',e);}s.remove();};
+  s.onerror=function(){document.getElementById('updated').textContent='feed unreachable — retrying…';s.remove();};
   document.body.appendChild(s);
 }
-refreshStatus();
-setInterval(refreshStatus,60000);
 
-// ---- Last-keyed activity (polls online nodes' stats, staggered) ----
+// ---- Live transmit / last-keyed (polls online nodes' stats, staggered) ----
 var activityOn=false,activityTimer=null;
 function fetchKey(rec){
   fetch(API+rec.o.n).then(function(r){return r.json();}).then(function(j){
@@ -282,7 +315,7 @@ function fetchKey(rec){
     if(keyed)rec.lastKeyed=Date.now();
     if(!isNaN(ku))rec.prevKu=ku;
     rec.keyedNow=keyed;
-    styleRec(rec);rec.m.setPopupContent(popupHtml(rec));
+    styleRec(rec);
     updateActivityInfo();
   }).catch(function(){});
 }
@@ -295,16 +328,16 @@ function updateActivityInfo(){
 function activityCycle(){
   if(!activityOn)return;
   var list=recs.filter(function(r){return r.up===true;});
-  list.forEach(function(rec,i){setTimeout(function(){if(activityOn)fetchKey(rec);},i*900);});
+  list.forEach(function(rec,i){setTimeout(function(){if(activityOn)fetchKey(rec);},i*700);});
   updateActivityInfo();
-  activityTimer=setTimeout(activityCycle,Math.max(60000,list.length*900+8000));
+  activityTimer=setTimeout(activityCycle,Math.max(45000,list.length*700+6000));
 }
 document.getElementById('act').addEventListener('change',function(e){
   activityOn=e.target.checked;
-  if(activityOn){document.getElementById('actInfo').textContent='polling key-up activity…';activityCycle();}
+  if(activityOn){document.getElementById('actInfo').textContent='polling transmit status…';activityCycle();}
   else{
     if(activityTimer)clearTimeout(activityTimer);
-    recs.forEach(function(r){r.keyedNow=false;styleRec(r);r.m.setPopupContent(popupHtml(r));});
+    recs.forEach(function(r){r.keyedNow=false;styleRec(r);});
     document.getElementById('actInfo').textContent='';
   }
 });
@@ -339,10 +372,9 @@ function showConn(id,fromBack){
   fetch(API+id).then(function(r){return r.json();}).then(function(j){
     var d=j&&j.stats&&j.stats.data; var ln=(d&&d.linkedNodes)||[];
     connLayer=L.layerGroup().addTo(map);
-    // hub position: the inspected node's own coords (centroid if on-map, else its registry coords), else central AR
     var hub=[34.72,-92.35], hubName='';
     var self=recById[id];
-    if(self){var sl=self.m.getLatLng();hub=[sl.lat,sl.lng];hubName=self.o.c+' — '+self.o.city+', AR';}
+    if(self){var sl=self.m.getLatLng();hub=[sl.lat,sl.lng];hubName=self.o.c+' — '+self.o.city;}
     ln.forEach(function(x){if(String(x.name)===id){
       if(!hubName)hubName=((x.callsign||'')+' '+((x.server&&x.server.Location)||'')).trim();
       if(!self&&x.server){var la=parseFloat(x.server.Latitude),lo=parseFloat(x.server.Logitude);if(validLL(la,lo))hub=[la,lo];}
@@ -395,7 +427,6 @@ document.getElementById('connBack').addEventListener('click',function(){if(connH
 // ---- High-impact warning polygons (NWS): CONSIDERABLE / PDS / EMERGENCY / CATASTROPHIC ----
 var warnOn=false,warnLayer=null,warnTimer=null,warnSeen={},warnMuted=false,warnAudio=null,watchExtra=[];
 var WX_AREA='AR,MO,OK,TX,LA,MS,TN';   // Arkansas + bordering states
-// Watch list: ALL Arkansas counties by default (SAME 005xxx / ", AR"), plus user-added out-of-state counties.
 function normCounty(s){return s.toUpperCase().replace(/\b(COUNTY|PARISH)\b/g,'').replace(/\s+/g,' ').replace(/\s*,\s*/g,', ').trim();}
 function inWatch(pr){
   var same=(pr.geocode&&pr.geocode.SAME)||[];
@@ -437,7 +468,7 @@ function warnColor(tags){
   if(tags.indexOf('PDS')>=0)return '#e8491d';
   return '#f39c12';
 }
-var WARN_TITLE='Arkansas AllStarLink Nodes — Live';
+var WARN_TITLE='Arkansas AUXCOMM Nodemap — Live';
 function warnBeep(){
   if(warnMuted||!warnAudio)return;
   try{
@@ -524,8 +555,14 @@ document.getElementById('warnBtn').addEventListener('click',function(){
     clearInterval(window.__warnTitle);document.title=WARN_TITLE;
   }
 });
+
+// ---- Start live updates ----
+// Retry the initial feed load a few times (allstarmap.org can be slow to first respond).
+(function tryFeed(n){refreshFeed();if(n>0)setTimeout(function(){if(!feedOk)tryFeed(n-1);},7000);})(6);
+setInterval(refreshFeed,60000);
+activityCycle();
 </script>
 </body>
 </html>
 HTML
-echo "Wrote $OUT  ($mapped mapped / $total total, $missing missing)"
+echo "Wrote $OUT  ($mapped baked registry / $total total, $missing missing)"

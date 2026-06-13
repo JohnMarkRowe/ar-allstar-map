@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Arkansas AllStarLink Nodes — Live</title>
+<title>Arkansas AUXCOMM Nodemap — Live</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
@@ -70,8 +70,8 @@
 </head>
 <body>
 <div class="panel">
-  <h1>Arkansas AllStarLink Nodes</h1>
-  <p><b>162</b> registered nodes · live status from AllStarLink</p>
+  <h1>Arkansas AUXCOMM Nodemap</h1>
+  <p>Live AllStarLink nodes · positions &amp; status from AllStarLink · basemap &amp; counties from Arkansas GIS</p>
   <p><span class="stat"><span class="dot on"></span>Online: <span id="cOn">…</span></span>
      <span class="stat"><span class="dot off"></span>Offline: <span id="cOff">…</span></span></p>
   <div class="filters">Show:
@@ -81,7 +81,7 @@
     <label style="margin-left:6px"><input type="checkbox" id="cty" checked> Counties</label>
   </div>
   <div class="filters">
-    <label><input type="checkbox" id="act"> <b>Last-keyed activity</b>
+    <label><input type="checkbox" id="act"> <b>Live transmit (keyed)</b>
       <span class="dot air"></span>on air <span class="dot act"></span>active(10m)</label>
   </div>
   <p id="actInfo"></p>
@@ -104,18 +104,19 @@
     <button id="watchAdd">Add</button>
   </div>
   <div id="watchList"></div>
-  <p id="updated">loading live status…</p>
-  <p style="color:#7c93aa;font-size:10.5px">Live status auto-refresh 60s ·
-     Activity = key-ups observed since you opened this page (AllStarLink updates ~60s).</p>
-  <div class="disclaimer">&#9888; Node positions are derived from AllStarLink <b>registry data</b> —
-     registered city centroids for Arkansas nodes and operator-registered coordinates for inspected nodes —
-     <b>not the actual physical repeater/antenna locations</b>. Treat all positions as approximate.</div>
+  <p id="updated">loading live feed…</p>
+  <p style="color:#7c93aa;font-size:10.5px">Nodes &amp; transmit refresh ~60s (AllStarLink updates ~60s, so keyed is near- not instant-real-time).</p>
+  <div class="disclaimer">&#9888; Online node positions are the operator-registered coordinates from AllStarLink;
+     offline nodes fall back to their registered city center — <b>neither is guaranteed to be the physical
+     antenna site</b>. A single node may also front an RF-linked multi-repeater system, so this is a
+     <b>node</b> map, not an RF-coverage map.</div>
 </div>
 <div id="map"></div>
 <div id="warnFlash"></div>
 <div id="warnAlert"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
 <script>
 var nodes=[
 {n:"2186",c:"WB5NFC",d:"TBD",city:"Pottsville",lat:35.2481394,lon:-93.0490610},
@@ -133,9 +134,13 @@ var nodes=[
 {n:"29905",c:"WX0X",d:"433.500",city:"Cabot",lat:34.9745320,lon:-92.0165336},
 {n:"40037",c:"AB5N",d:"145.55",city:"Hot Springs",lat:34.5038393,lon:-93.0552437},
 {n:"40038",c:"AB5N",d:"446.225",city:"Hot Springs",lat:34.500890,lon:-93.051949},
+{n:"40171",c:"K5VAN",d:"446.100",city:"Landmark",lat:34.6112044,lon:-92.3195963},
 {n:"40457",c:"W5BNL",d:"",city:"Bella Vista",lat:36.4678036,lon:-94.2669727},
 {n:"41026",c:"KK4IOH",d:"",city:"West Memphis",lat:35.1464797,lon:-90.1845388},
+{n:"41076",c:"WB5E",d:"147.510 simplex",city:"Brookland",lat:35.9000730,lon:-90.5820534},
+{n:"41077",c:"WB5E",d:"Radioless node",city:"Brookland",lat:35.897124,lon:-90.578758},
 {n:"41420",c:"KK4IOH",d:"445.925",city:"West Memphis",lat:35.143530,lon:-90.181244},
+{n:"41705",c:"N5QLC",d:"147.255",city:"Sherwood",lat:34.8150907,lon:-92.2243153},
 {n:"41741",c:"K5TW",d:"K5TW System Hub",city:"Trumann",lat:35.6728822,lon:-90.5069406},
 {n:"41855",c:"K5TW",d:"146.835 PL 107.2",city:"Harrisburg",lat:35.5631272,lon:-90.7185589},
 {n:"41856",c:"K5TW",d:"444.525 PL 94.8",city:"Harrisburg",lat:35.560178,lon:-90.715264},
@@ -143,32 +148,46 @@ var nodes=[
 {n:"41858",c:"NI5A",d:"443.500 PL 94.8",city:"Trumann",lat:35.669933,lon:-90.503646},
 {n:"41859",c:"NI5A",d:"146.955 PL 107.2",city:"Trumann",lat:35.673377,lon:-90.513813},
 {n:"42685",c:"KJ5PMI",d:"446.950",city:"Lincoln",lat:35.9494569,lon:-94.4233612},
+{n:"43229",c:"N5EWC",d:"147.520",city:"Vilonia",lat:35.0839750,lon:-92.2079277},
+{n:"43368",c:"Connect 40010",d:"WX5NAS/R",city:"Huntsville",lat:36.0884253,lon:-93.7375258},
 {n:"43575",c:"AB5BC",d:"444.3300",city:"Turrell",lat:35.3765218,lon:-90.2568406},
 {n:"43997",c:"KH6PRD",d:"448.305",city:"Bella Vista",lat:36.464854,lon:-94.263678},
+{n:"44370",c:"K5TSF",d:"AllScan UCI-150",city:"Lincoln",lat:35.946507,lon:-94.420066},
+{n:"44837",c:"AA5LR",d:"",city:"Hot Springs",lat:34.504334,lon:-93.062116},
 {n:"44877",c:"W5TMW",d:"435.100",city:"Jonesboro",lat:35.831859,lon:-90.701235},
 {n:"45420",c:"K5TW",d:"Clear Node Hotspot",city:"Harrisburg",lat:35.563622,lon:-90.725431},
 {n:"45421",c:"W5JBR",d:"146.610  PL 94.8",city:"Jonesboro",lat:35.835303,lon:-90.711402},
 {n:"45422",c:"NI5A",d:"Link to 146.61",city:"Jonesboro",lat:35.839024,lon:-90.697825},
+{n:"45734",c:"WX5NAS",d:"147.315+, others",city:"Springdale",lat:36.1867442,lon:-94.1288142},
 {n:"45921",c:"K5GIJ",d:"*GeekJeep*",city:"Mountain View",lat:35.8684075,lon:-92.1176521},
 {n:"46060",c:"N5MSC",d:"444.950",city:"Hughes",lat:34.9490408,lon:-90.4716462},
-{n:"46914",c:"NX5V/L",d:"441.200",city:"Springdale",lat:36.1867442,lon:-94.1288142},
+{n:"46344",c:"W0KFL",d:"Local radio node",city:"Rogers",lat:36.3348570,lon:-94.1193816},
+{n:"46383",c:"K5NEA",d:"",city:"Jonesboro",lat:35.826931,lon:-90.706229},
+{n:"46914",c:"NX5V/L",d:"441.200",city:"Springdale",lat:36.183795,lon:-94.125519},
 {n:"46918",c:"AJ5C",d:"441.900",city:"Harrison",lat:36.2297936,lon:-93.1076765},
-{n:"48493",c:"AB5N",d:"145.725",city:"Hot Springs",lat:34.504334,lon:-93.062116},
-{n:"49261",c:"KE5SQC",d:"N/A",city:"Fishook",lat:34.7022469,lon:-93.2889757},
+{n:"46977",c:"K5DVT",d:"147.445",city:"Huntsville",lat:36.085476,lon:-93.734231},
+{n:"47127",c:"KF5ETZ",d:"",city:"Jonesboro",lat:35.842356,lon:-90.710384},
+{n:"47591",c:"W5NSN",d:"444.900+",city:"Centerton",lat:36.3652679,lon:-94.2886875},
+{n:"47592",c:"W5NSN",d:"444.700+",city:"Springdale",lat:36.187239,lon:-94.135686},
+{n:"48493",c:"AB5N",d:"145.725",city:"Hot Springs",lat:34.508055,lon:-93.048539},
 {n:"49617",c:"KI5CAM",d:"442.400",city:"Siloam Springs",lat:36.1866289,lon:-94.5413695},
 {n:"49775",c:"N9INK",d:"145.250-",city:"Summers",lat:35.9811927,lon:-94.4916067},
-{n:"50495",c:"AB5N",d:"HUB",city:"Hot Springs",lat:34.508055,lon:-93.048539},
-{n:"50496",c:"AB5N",d:"927.9875",city:"Hot Springs",lat:34.495962,lon:-93.056943},
-{n:"50497",c:"AB5N",d:"927.9875",city:"Hot Springs",lat:34.511386,lon:-93.061098},
+{n:"50495",c:"AB5N",d:"HUB",city:"Hot Springs",lat:34.495962,lon:-93.056943},
+{n:"50496",c:"AB5N",d:"927.9875",city:"Hot Springs",lat:34.511386,lon:-93.061098},
+{n:"50497",c:"AB5N",d:"927.9875",city:"Hot Springs",lat:34.501296,lon:-93.043705},
 {n:"50670",c:"W5SMR",d:"443.650",city:"Conway",lat:35.0891932,lon:-92.4398402},
+{n:"51124",c:"N5QLC",d:"443.000 Repeater",city:"Sherwood",lat:34.812141,lon:-92.221020},
 {n:"51519",c:"WR5B",d:"",city:"Little Rock",lat:34.7465071,lon:-92.2896267},
 {n:"51689",c:"K5TEL",d:"",city:"Russellville",lat:35.282633,lon:-93.127080},
-{n:"52070",c:"KE5SQC",d:"446.025",city:"Fishook",lat:34.699297,lon:-93.285681},
 {n:"53401",c:"KI5MFS",d:"Mobile Node",city:"Trumann",lat:35.677098,lon:-90.500235},
 {n:"54403",c:"KK4ZZ",d:"",city:"Hope",lat:33.6670616,lon:-93.5915665},
 {n:"54525",c:"KC5GFL",d:"146.480",city:"Arkadelphia",lat:34.1209292,lon:-93.0537840},
+{n:"54767",c:"KI5MIL",d:"",city:"Benton",lat:34.5645372,lon:-92.5868280},
 {n:"55255",c:"K5GLZ",d:"",city:"England",lat:34.5442609,lon:-91.9690285},
+{n:"55490",c:"AJ5SJ",d:"446.300",city:"Conway",lat:35.086244,lon:-92.436545},
 {n:"55497",c:"N5LML",d:"",city:"Bentonville",lat:36.3728608,lon:-94.2087870},
+{n:"55572",c:"KD5JVU",d:"",city:"Pine Bluff",lat:34.2228884,lon:-92.0043340},
+{n:"56360",c:"AB5UB",d:"URI node",city:"Lincoln",lat:35.949951,lon:-94.430233},
 {n:"56774",c:"WB0TNP",d:"",city:"Mountain Home",lat:36.3361391,lon:-92.3801187},
 {n:"57711",c:"K5AIN",d:"",city:"North Little Rock",lat:34.7695360,lon:-92.2670941},
 {n:"57970",c:"WD5O",d:"444.725",city:"Highland",lat:36.2759002,lon:-91.5240287},
@@ -176,60 +195,106 @@ var nodes=[
 {n:"58252",c:"N5MSC",d:"442.150",city:"Marion",lat:35.210034,lon:-90.191685},
 {n:"58489",c:"K0WAV",d:"147.435",city:"Carroll County",lat:36.3386737,lon:-93.5093048},
 {n:"58821",c:"N0UCK",d:"146.520",city:"Norfork",lat:36.2095132,lon:-92.2843230},
+{n:"59429",c:"W5OOT",d:"",city:"Little Rock",lat:34.743558,lon:-92.286332},
+{n:"59881",c:"N5ALN",d:"446.050",city:"Crawfordsville",lat:35.2238372,lon:-90.3259823},
 {n:"59984",c:"NI5C",d:"",city:"Batesville",lat:35.7708144,lon:-91.6531128},
-{n:"60387",c:"AG5QY",d:"446.1625",city:"Jonesboro",lat:35.826931,lon:-90.706229},
+{n:"60387",c:"AG5QY",d:"446.1625",city:"Jonesboro",lat:35.832265,lon:-90.692991},
 {n:"60761",c:"KJ5DGG",d:"",city:"Marion",lat:35.213478,lon:-90.201852},
 {n:"61111",c:"KC5GFL",d:"145.270",city:"Arkadelphia",lat:34.117980,lon:-93.050489},
-{n:"62124",c:"W5AUU",d:"147.030 Mhz",city:"Conway",lat:35.086244,lon:-92.436545},
+{n:"61298",c:"KI5RC",d:"",city:"Fairfield Bay",lat:35.6052619,lon:-92.2677334},
+{n:"62124",c:"W5AUU",d:"147.030 Mhz",city:"Conway",lat:35.089688,lon:-92.446712},
 {n:"62746",c:"KJ5GOV",d:"",city:"Scranton",lat:35.3605141,lon:-93.5402028},
 {n:"62777",c:"AI5VQ",d:"442.375+",city:"Leslie",lat:35.8303873,lon:-92.5578551},
 {n:"62785",c:"AI5VQ",d:"439.4250",city:"Leslie",lat:35.827438,lon:-92.554560},
 {n:"62872",c:"N5SEA",d:"Cloud Hub",city:"Crossett",lat:33.1263899,lon:-91.9629700},
+{n:"63255",c:"KI5MEZ",d:"147.45",city:"Springdale",lat:36.190960,lon:-94.122109},
 {n:"63275",c:"N5CES",d:"",city:"Arkadelphia",lat:34.121424,lon:-93.060656},
+{n:"63447",c:"KI5YDI",d:"",city:"Little Rock",lat:34.747002,lon:-92.296499},
 {n:"63664",c:"KD5DF",d:"",city:"Forrest City",lat:35.0081474,lon:-90.7898342},
 {n:"63856",c:"WX5DR",d:"",city:"Fort Smith",lat:35.3880338,lon:-94.4265011},
 {n:"63870",c:"KD5DF",d:"443.450",city:"Forrest City",lat:35.005198,lon:-90.786539},
 {n:"64029",c:"N5ALC",d:"446.500 simplex",city:"Batesville",lat:35.767865,lon:-91.649818},
-{n:"64437",c:"AE5AU",d:"",city:"Little Rock",lat:34.743558,lon:-92.286332},
+{n:"64437",c:"AE5AU",d:"",city:"Little Rock",lat:34.750722,lon:-92.282922},
+{n:"64581",c:"KE5YQB",d:"",city:"Little Rock",lat:34.738629,lon:-92.291326},
 {n:"64910",c:"N5LSN",d:"442.250+",city:"Bauxite",lat:34.5573078,lon:-92.5237975},
-{n:"65083",c:"W5LVB",d:"146.880-",city:"Hot Springs",lat:34.501296,lon:-93.043705},
+{n:"65072",c:"W1KLM",d:"",city:"Finch",lat:36.0097926,lon:-90.6278882},
+{n:"65083",c:"W5LVB",d:"146.880-",city:"Hot Springs",lat:34.498962,lon:-93.066697},
+{n:"65291",c:"W5HUM",d:"443.350",city:"Mena",lat:34.5837324,lon:-94.2376664},
 {n:"65292",c:"AI5YQ",d:"146.540",city:"Jacksonville",lat:34.8662005,lon:-92.1101458},
 {n:"65304",c:"AI5YQ",d:"445.000",city:"Jacksonville",lat:34.863251,lon:-92.106851},
+{n:"65324",c:"NG5P",d:"",city:"Sherwood",lat:34.815585,lon:-92.231187},
 {n:"65364",c:"KE5CT",d:"445.975",city:"Clarksville",lat:35.4713108,lon:-93.4664819},
-{n:"65431",c:"KM7CT",d:"",city:"Little Rock",lat:34.747002,lon:-92.296499},
-{n:"65434",c:"KM7CT",d:"",city:"Little Rock",lat:34.750722,lon:-92.282922},
+{n:"65399",c:"W1KLM",d:"",city:"Amagon",lat:35.5630897,lon:-91.1097789},
+{n:"65431",c:"KM7CT",d:"",city:"Little Rock",lat:34.754054,lon:-92.295481},
+{n:"65434",c:"KM7CT",d:"",city:"Little Rock",lat:34.743964,lon:-92.278088},
+{n:"65589",c:"N5ZE",d:"",city:"Springdale",lat:36.178866,lon:-94.130514},
 {n:"65632",c:"K5NES",d:"147.225+",city:"Desha",lat:35.7361886,lon:-91.6798619},
-{n:"66093",c:"N5PKR",d:"",city:"Hot Springs",lat:34.498962,lon:-93.066697},
-{n:"66337",c:"KJ5IAZ",d:"",city:"Mena",lat:34.5837324,lon:-94.2376664},
+{n:"65740",c:"N7ERE",d:"",city:"Conway",lat:35.093409,lon:-92.433135},
+{n:"65823",c:"KJ5LEB",d:"",city:"Mena",lat:34.580783,lon:-94.234371},
+{n:"66093",c:"N5PKR",d:"",city:"Hot Springs",lat:34.514467,lon:-93.050511},
+{n:"66298",c:"KI5GWF",d:"",city:"Mena",lat:34.584227,lon:-94.244539},
+{n:"66337",c:"KJ5IAZ",d:"",city:"Mena",lat:34.587948,lon:-94.230961},
 {n:"66423",c:"WX1NWA",d:"147.360",city:"Jasper",lat:36.0080624,lon:-93.1868973},
-{n:"66724",c:"AE5GH",d:"",city:"Conway",lat:35.089688,lon:-92.446712},
+{n:"66685",c:"AG5CC",d:"146.540 MHz",city:"Southside",lat:35.7155972,lon:-91.6291699},
+{n:"66724",c:"AE5GH",d:"",city:"Conway",lat:35.081315,lon:-92.441540},
+{n:"67298",c:"N5ODB",d:"446.16250",city:"Mabelvale",lat:34.6550928,lon:-92.3865432},
+{n:"67475",c:"KB5WBH",d:"444.325",city:"Monette",lat:35.8900257,lon:-90.3451809},
+{n:"68009",c:"KJ5MXA",d:"",city:"Searcy",lat:35.2506406,lon:-91.7362488},
+{n:"68140",c:"KC5DJR",d:"AllScan UCI-90 Radio",city:"Lincoln",lat:35.953672,lon:-94.416656},
+{n:"68257",c:"KJ5RT",d:"",city:"Mabelvale",lat:34.652143,lon:-92.383248},
 {n:"68585",c:"KC5LVW",d:"",city:"Clarksville",lat:35.468361,lon:-93.463187},
+{n:"68708",c:"W5JFA",d:"",city:"Malvern",lat:34.3625823,lon:-92.8092694},
+{n:"68787",c:"K5TSF",d:"AllScan UCI-150",city:"Lincoln",lat:35.941579,lon:-94.425061},
 {n:"68796",c:"KJ5OQF",d:"",city:"Bella Vista",lat:36.468298,lon:-94.273845},
-{n:"68881",c:"KI5QNE",d:"",city:"Murfreeseboro",lat:34.0623308,lon:-93.6899049},
+{n:"69018",c:"KJ5EVS",d:"",city:"Des Arc",lat:34.9770353,lon:-91.4951307},
+{n:"69059",c:"WB5BHS",d:"",city:"Russellville",lat:35.270540,lon:-93.135485},
+{n:"69471",c:"KG5CUO",d:"147.420",city:"Grant County",lat:34.2773864,lon:-92.4205780},
 {n:"69480",c:"N5NBJ",d:"",city:"Harrison",lat:36.226844,lon:-93.104381},
-{n:"403730",c:"NY5AR",d:"",city:"Benton",lat:34.5645372,lon:-92.5868280},
-{n:"403731",c:"NY5AR",d:"",city:"Benton",lat:34.561588,lon:-92.583533},
-{n:"403732",c:"NY5AR",d:"",city:"Benton",lat:34.565032,lon:-92.593700},
+{n:"403730",c:"NY5AR",d:"",city:"Benton",lat:34.561588,lon:-92.583533},
+{n:"403731",c:"NY5AR",d:"",city:"Benton",lat:34.565032,lon:-92.593700},
+{n:"403732",c:"NY5AR",d:"",city:"Benton",lat:34.568753,lon:-92.580123},
+{n:"410792",c:"W5BJR",d:"145.470- CSQ",city:"Paragould",lat:36.0584021,lon:-90.4973286},
+{n:"410793",c:"WB5E",d:"Go-Box Radioless ",city:"Brookland",lat:35.900568,lon:-90.588926},
+{n:"411641",c:"W5JDW",d:"Radio-less node",city:"Greenbrier",lat:35.2339274,lon:-92.3877837},
+{n:"411648",c:"W5JDW",d:"Test Node ",city:"Greenbrier",lat:35.230978,lon:-92.384489},
 {n:"411770",c:"KH6PRD",d:"448.305",city:"Bella Vista",lat:36.472019,lon:-94.260268},
 {n:"411771",c:"KH6PRD",d:"146.750",city:"Bella Vista",lat:36.459926,lon:-94.268672},
-{n:"450780",c:"KF5LBT",d:"Radioless Node",city:"Springdale",lat:36.183795,lon:-94.125519},
-{n:"454130",c:"W5RHS",d:"147.120",city:"Benton",lat:34.568753,lon:-92.580123},
-{n:"454131",c:"W5RHS",d:"446.120",city:"Benton",lat:34.556659,lon:-92.588527},
-{n:"454132",c:"W5RHS",d:"",city:"Benton",lat:34.572084,lon:-92.592682},
-{n:"457870",c:"K5TEL",d:"ClearNode1",city:"Russellville",lat:35.270540,lon:-93.135485},
-{n:"457871",c:"K5TEL",d:"ClearNode-2",city:"Russellville",lat:35.285964,lon:-93.139640},
-{n:"457872",c:"K5TEL",d:"438.6000",city:"Russellville",lat:35.275874,lon:-93.122247},
-{n:"457873",c:"K5TEL",d:"",city:"Russellville",lat:35.273540,lon:-93.145239},
+{n:"432280",c:"N5EWC",d:"146.510",city:"Vilonia",lat:35.081026,lon:-92.204633},
+{n:"432281",c:"N5EWC",d:"146.510",city:"Vilonia",lat:35.084470,lon:-92.214800},
+{n:"436841",c:"K5SLL",d:"147.5700",city:"New Edinburg",lat:33.7573274,lon:-92.2384789},
+{n:"450780",c:"KF5LBT",d:"Radioless Node",city:"Springdale",lat:36.194291,lon:-94.134669},
+{n:"454130",c:"W5RHS",d:"147.120",city:"Benton",lat:34.556659,lon:-92.588527},
+{n:"454131",c:"W5RHS",d:"446.120",city:"Benton",lat:34.572084,lon:-92.592682},
+{n:"454132",c:"W5RHS",d:"",city:"Benton",lat:34.561994,lon:-92.575289},
+{n:"457870",c:"K5TEL",d:"ClearNode1",city:"Russellville",lat:35.285964,lon:-93.139640},
+{n:"457871",c:"K5TEL",d:"ClearNode-2",city:"Russellville",lat:35.275874,lon:-93.122247},
+{n:"457872",c:"K5TEL",d:"438.6000",city:"Russellville",lat:35.273540,lon:-93.145239},
+{n:"457873",c:"K5TEL",d:"",city:"Russellville",lat:35.289045,lon:-93.129053},
 {n:"465021",c:"N5SEA",d:"146.640 Repeater",city:"Hamburg",lat:33.2281757,lon:-91.7976285},
-{n:"499600",c:"AA5JC",d:"146.775",city:"Little Rock",lat:34.738629,lon:-92.291326},
-{n:"499601",c:"AA5JC",d:"Central Arkansas Hub",city:"Little Rock",lat:34.754054,lon:-92.295481},
-{n:"508069",c:"W5JDW",d:"Mobile Node",city:"Greenbrier",lat:35.2339274,lon:-92.3877837},
+{n:"499600",c:"AA5JC",d:"146.775",city:"Little Rock",lat:34.741629,lon:-92.301080},
+{n:"499601",c:"AA5JC",d:"Central Arkansas Hub",city:"Little Rock",lat:34.757134,lon:-92.284894},
+{n:"508060",c:"W5JDW",d:"Mobile Node",city:"Salem",lat:36.3711104,lon:-91.8270949},
+{n:"508061",c:"W5JDW",d:"146.450 114.8",city:"Salem",lat:36.368161,lon:-91.823800},
+{n:"508062",c:"W5JDW",d:"Echolink W5JDW-L",city:"Greenbrier",lat:35.234422,lon:-92.394656},
+{n:"508063",c:"W5JDW",d:"Main Link HUB Backup",city:"Greenbrier",lat:35.238143,lon:-92.381079},
+{n:"508065",c:"W5JDW",d:"HOIP-15087",city:"Salem",lat:36.371605,lon:-91.833967},
+{n:"508066",c:"W5JDW",d:"Auxcomm Mobile Node ",city:"Salem",lat:36.375326,lon:-91.820390},
+{n:"508067",c:"W5JDW",d:"Auxcomm ",city:"Salem",lat:36.363233,lon:-91.828794},
+{n:"508068",c:"W5JDW",d:"145.270 pl 114.8",city:"Greenbrier",lat:35.226050,lon:-92.389483},
+{n:"508069",c:"W5JDW",d:"Mobile Node",city:"Greenbrier",lat:35.241474,lon:-92.393638},
 {n:"510543",c:"WG5EEK",d:"147.4900",city:"Tontitown",lat:36.1778565,lon:-94.2335396},
 {n:"517260",c:"KU5J",d:"",city:"North Little Rock",lat:34.766587,lon:-92.263799},
 {n:"517261",c:"KU5J",d:"Echolink",city:"North Little Rock",lat:34.770031,lon:-92.273966},
 {n:"517262",c:"KU5J",d:"DVSwitch",city:"North Little Rock",lat:34.773751,lon:-92.260389},
+{n:"543690",c:"KI5NBB",d:"",city:"Prairie, Grove",lat:35.9774334,lon:-94.3137353},
+{n:"543692",c:"KI5NBB",d:"",city:"Prairie, Grove",lat:35.974484,lon:-94.310440},
 {n:"547040",c:"W5TP",d:"",city:"Cave Springs",lat:36.2634109,lon:-94.2318728},
 {n:"547041",c:"W5TP",d:"",city:"Cave Springs",lat:36.260461,lon:-94.228578},
+{n:"550760",c:"AJ5SJ",d:"433.500",city:"Conway",lat:35.096740,lon:-92.445695},
+{n:"550761",c:"AJ5SJ",d:"434.600",city:"Conway",lat:35.086650,lon:-92.428301},
+{n:"564980",c:"AB5UB",d:"Normad node",city:"Lincoln",lat:35.957004,lon:-94.429216},
+{n:"564981",c:"AB5UB",d:"",city:"Lincoln",lat:35.946913,lon:-94.411822},
+{n:"564985",c:"AB5UB",d:"",city:"Lincoln",lat:35.944579,lon:-94.434815},
 {n:"577970",c:"K5AIN",d:"",city:"North Little Rock",lat:34.761658,lon:-92.268793},
 {n:"577971",c:"K5AIN",d:"",city:"North Little Rock",lat:34.777083,lon:-92.272949},
 {n:"591490",c:"KI5BGC",d:"145.310",city:"Wynne",lat:35.2245330,lon:-90.7867798},
@@ -237,11 +302,13 @@ var nodes=[
 {n:"591492",c:"K5WMS",d:"",city:"Wynne",lat:35.225028,lon:-90.793652},
 {n:"599790",c:"NI5C",d:"",city:"Batesville",lat:35.771309,lon:-91.659985},
 {n:"599791",c:"NI5C",d:"444.900",city:"Batesville",lat:35.775030,lon:-91.646408},
-{n:"603900",c:"AG5QY",d:"",city:"Jonesboro",lat:35.842356,lon:-90.710384},
-{n:"603901",c:"AG5QY",d:"",city:"Jonesboro",lat:35.832265,lon:-90.692991},
+{n:"601020",c:"NA0D",d:"YSF Reflector",city:"Flippin",lat:36.2769948,lon:-92.5954235},
+{n:"601021",c:"NA0D",d:"Echolink NA0D-R",city:"Flippin",lat:36.274045,lon:-92.592128},
+{n:"601022",c:"NA0D",d:"Broadcastify Link",city:"Flippin",lat:36.277489,lon:-92.602296},
+{n:"603900",c:"AG5QY",d:"",city:"Jonesboro",lat:35.829931,lon:-90.715983},
+{n:"603901",c:"AG5QY",d:"",city:"Jonesboro",lat:35.845436,lon:-90.699797},
 {n:"604530",c:"KI5WAY",d:"",city:"Bay",lat:35.7428864,lon:-90.5625134},
 {n:"604531",c:"KI5WAY",d:"",city:"Bay",lat:35.739937,lon:-90.559218},
-{n:"616992",c:"KE5SQC/92",d:"None",city:"Fishook",lat:34.702741,lon:-93.295848},
 {n:"625711",c:"W5STR",d:"",city:"Cabot",lat:34.971583,lon:-92.013239},
 {n:"625712",c:"W5STR",d:"224.600",city:"Saltillo",lat:35.0275870,lon:-92.3265421},
 {n:"625713",c:"W5STR",d:"",city:"Cabot",lat:34.975027,lon:-92.023406},
@@ -253,13 +320,20 @@ var nodes=[
 {n:"642672",c:"W5HAR",d:"",city:"Helena",lat:34.527169,lon:-90.593146},
 {n:"642673",c:"W5HAR",d:"",city:"Helena",lat:34.530890,lon:-90.579569},
 {n:"642674",c:"W5HAR",d:"",city:"Helena",lat:34.518797,lon:-90.587973},
-{n:"643530",c:"KD9SK",d:"",city:"Hot Springs",lat:34.514467,lon:-93.050511},
-{n:"643531",c:"KD9SK",d:"",city:"Hot Springs",lat:34.492747,lon:-93.049660},
-{n:"643532",c:"KD9SK",d:"",city:"Hot Springs",lat:34.509201,lon:-93.069215},
-{n:"643533",c:"KD9SK",d:"",city:"Hot Springs",lat:34.507810,lon:-93.039807},
+{n:"643530",c:"KD9SK",d:"",city:"Hot Springs",lat:34.492747,lon:-93.049660},
+{n:"643531",c:"KD9SK",d:"",city:"Hot Springs",lat:34.509201,lon:-93.069215},
+{n:"643532",c:"KD9SK",d:"",city:"Hot Springs",lat:34.507810,lon:-93.039807},
+{n:"643533",c:"KD9SK",d:"",city:"Hot Springs",lat:34.491851,lon:-93.063716},
+{n:"654580",c:"W5HUM",d:"146.790",city:"Mena",lat:34.575855,lon:-94.239366},
+{n:"654581",c:"N5AD",d:"HUB SERVER",city:"Mena",lat:34.591279,lon:-94.243521},
+{n:"654582",c:"N5AD",d:"",city:"Mena",lat:34.581189,lon:-94.226127},
 {n:"655190",c:"W5HRP",d:"446.675",city:"Danville",lat:35.0539792,lon:-93.3935185},
 {n:"655191",c:"W5HRP",d:"",city:"Danville",lat:35.051030,lon:-93.390223},
 {n:"656440",c:"W5OLA",d:"147.210 +0.6MHz",city:"Ola",lat:35.0323119,lon:-93.2232345},
+{n:"659980",c:"KJ5CWR",d:"",city:"Fayetteville",lat:36.070131,lon:-94.163287},
+{n:"659981",c:"KJ5CWR",d:"",city:"Fayetteville",lat:36.060041,lon:-94.145894},
+{n:"659982",c:"KJ5CWR",d:"",city:"Fayetteville",lat:36.057707,lon:-94.168886},
+{n:"659983",c:"KJ5CWR",d:"",city:"Fayetteville",lat:36.073212,lon:-94.152700},
 {n:"660640",c:"KK4IOH",d:"",city:"West Memphis",lat:35.146974,lon:-90.191411},
 {n:"660641",c:"KK4IOH",d:"",city:"West Memphis",lat:35.150695,lon:-90.177834},
 {n:"660642",c:"KK4IOH",d:"",city:"West Memphis",lat:35.138602,lon:-90.186238},
@@ -283,44 +357,58 @@ var nodes=[
 
 ];
 var API='https://stats.allstarlink.org/api/stats/';
+var AGIO='https://gis.arkansas.gov/arcgis/rest/services/';
 var map=L.map('map').setView([34.85,-92.3],7);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  {maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
 
-// ---- County overlay (US counties, filter Arkansas FIPS 05) ----
-var countyLayer=null;
-fetch('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json')
+// ---- Basemaps: two from Arkansas GIS (toggleable) + OSM fallback ----
+var osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+var topo=L.esri.dynamicMapLayer({url:AGIO+'Apps/Basemap_Dynamic/MapServer',
+  attribution:'Basemap: Arkansas GIS (AGIO)'});
+var aerial=L.esri.imageMapLayer({url:AGIO+'ImageServices/IMAGERY_9IN_2023/ImageServer',
+  attribution:'Imagery: Arkansas GIS (AGIO)'});
+L.control.layers({'OpenStreetMap':osm,'AR GIS — topo/streets':topo,'AR GIS — aerial imagery':aerial},
+  null,{position:'topright',collapsed:true}).addTo(map);
+
+// ---- County overlay + point-in-Arkansas test (Arkansas GIS COUNTY_BOUNDARY) ----
+var countyLayer=null, arPolys=[], arReady=false;
+function ringHas(ring,x,y){var inside=false;
+  for(var i=0,j=ring.length-1;i<ring.length;j=i++){
+    var xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    if(((yi>y)!=(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))inside=!inside;}
+  return inside;}
+function pointInAR(lat,lon){for(var p=0;p<arPolys.length;p++){if(ringHas(arPolys[p],lon,lat))return true;}return false;}
+fetch(AGIO+'FEATURESERVICES/Boundaries/MapServer/48/query?where=1%3D1&outFields=*&returnGeometry=true&maxAllowableOffset=0.004&geometryPrecision=4&outSR=4326&f=geojson')
  .then(function(r){return r.json();})
  .then(function(gj){
-   var ar={type:'FeatureCollection',
-     features:gj.features.filter(function(f){return String(f.id).slice(0,2)==='05';})};
-   countyLayer=L.geoJSON(ar,{
-     style:{color:'#3d5166',weight:1,fillColor:'#9bb4cc',fillOpacity:0.05,opacity:0.7},
+   countyLayer=L.geoJSON(gj,{
+     style:function(){return {color:'#3d5166',weight:1,fillColor:'#9bb4cc',fillOpacity:0.05,opacity:0.75};},
      onEachFeature:function(f,l){
-       l.bindTooltip(f.properties.NAME+' County',{sticky:true});
+       var p=f.properties||{},nm='';
+       ['COUNTY_NAME','NAME','County','COUNTYNAME','county','NAME10'].forEach(function(k){if(!nm&&p[k])nm=p[k];});
+       if(!nm){for(var k in p){if(/name/i.test(k)&&p[k]){nm=String(p[k]);break;}}}
+       nm=String(nm).replace(/county/i,'').trim();
+       l.bindTooltip((nm||'County')+' County',{sticky:true});
        l.on('mouseover',function(){l.setStyle({weight:2,fillOpacity:0.15});});
        l.on('mouseout',function(){l.setStyle({weight:1,fillOpacity:0.05});});
      }}).addTo(map);
    countyLayer.bringToBack();
- }).catch(function(e){console.warn('county overlay failed',e);});
+   (gj.features||[]).forEach(function(f){var g=f.geometry; if(!g)return;
+     if(g.type==='Polygon')arPolys.push(g.coordinates[0]);
+     else if(g.type==='MultiPolygon')g.coordinates.forEach(function(pp){arPolys.push(pp[0]);});});
+   arReady=true;
+ }).catch(function(e){console.warn('county/AR boundary load failed',e);});
 document.getElementById('cty').addEventListener('change',function(e){
   if(!countyLayer)return;
   if(e.target.checked){countyLayer.addTo(map);countyLayer.bringToBack();}
   else{map.removeLayer(countyLayer);}
 });
 
-// ---- Node markers ----
+// ---- Node markers (baked registry = offline fallback; live feed adds real coords) ----
 var cluster=L.markerClusterGroup({maxClusterRadius:45,spiderfyOnMaxZoom:true});
-var recs=nodes.map(function(o){
-  var m=L.circleMarker([o.lat,o.lon],
-    {radius:7,weight:1.5,color:'#1b2a38',fillColor:'#9aa7b3',fillOpacity:0.9});
-  return {o:o,m:m,up:null,prevKu:null,keyedNow:false,lastKeyed:null,connHi:false};
-});
-var recById={}; recs.forEach(function(r){recById[String(r.o.n)]=r;});
-
+var recById={};
 function rel(ts){var s=Math.round((Date.now()-ts)/1000);
   if(s<60)return s+'s';var m=Math.round(s/60);if(m<60)return m+'m';return Math.round(m/60)+'h';}
-
 function styleRec(rec){
   var up=rec.up;
   var fill=up===null?'#9aa7b3':(up?'#2ecc55':'#e0453a');
@@ -342,17 +430,19 @@ function popupHtml(rec){
   var act='';
   if(rec.keyedNow)act='<br><b style="color:#ff3b1d">&#128308; ON AIR now</b>';
   else if(rec.lastKeyed)act='<br>Last keyed '+rel(rec.lastKeyed)+' ago <span style="color:#999">(observed)</span>';
-  else if(activityOn)act='<br><span style="color:#999">no activity observed yet</span>';
+  var pos=rec.hasReal?'':' <span style="color:#999">(approx city center)</span>';
   return '<span class="nn">Node '+rec.o.n+'</span> '+badge+'<br><b>'+rec.o.c+'</b><br>'+
-    (rec.o.d?rec.o.d+'<br>':'')+rec.o.city+', AR'+act+
+    (rec.o.d?rec.o.d+'<br>':'')+rec.o.city+pos+act+
     '<br><a href="#" onclick="showConn(\''+rec.o.n+'\');return false;">&#9654; open this node&#39;s connections</a>'+
     '<br><a href="https://stats.allstarlink.org/stats/'+rec.o.n+'" target="_blank">stats &#8599;</a>';
 }
-recs.forEach(function(rec){
-  rec.m.bindPopup(popupHtml(rec));
-  rec.m.bindTooltip(rec.o.n+' · '+rec.o.c);
-});
-
+function makeRec(o){
+  var m=L.circleMarker([o.lat,o.lon],{radius:7,weight:1.5,color:'#1b2a38',fillColor:'#9aa7b3',fillOpacity:0.9});
+  var rec={o:o,m:m,up:null,prevKu:null,keyedNow:false,lastKeyed:null,connHi:false,hasReal:false};
+  m.bindPopup(function(){return popupHtml(rec);}); m.bindTooltip(o.n+' · '+o.c);
+  recById[String(o.n)]=rec; return rec;
+}
+var recs=nodes.map(makeRec);
 var curFilter='all';
 function applyFilter(){
   cluster.clearLayers();
@@ -366,38 +456,48 @@ function applyFilter(){
 }
 map.addLayer(cluster);
 applyFilter();
-map.fitBounds(L.latLngBounds(recs.map(function(r){return r.m.getLatLng();})).pad(0.08));
+if(recs.length)map.fitBounds(L.latLngBounds(recs.map(function(r){return r.m.getLatLng();})).pad(0.08));
 document.querySelectorAll('input[name=flt]').forEach(function(r){
   r.addEventListener('change',function(e){curFilter=e.target.value;applyFilter();});
 });
 
-// ---- Live online/offline status (script tag => no CORS) ----
-function setStatus(onlineSet){
-  var on=0,off=0;
-  recs.forEach(function(rec){
-    var up=onlineSet.has(String(rec.o.n));rec.up=up;up?on++:off++;
-    styleRec(rec);rec.m.setPopupContent(popupHtml(rec));
+// ---- Live feed: presence + REAL coordinates (script tag => no CORS) ----
+var feedOk=false;
+function applyFeed(feed){
+  feed=feed||[];
+  if(feed.length)feedOk=true;
+  var onlineIds={};
+  feed.forEach(function(o){onlineIds[String(o.id)]=1;});
+  feed.forEach(function(o){
+    var lat=parseFloat(o.lat),lon=parseFloat(o.lon);
+    if(isNaN(lat)||isNaN(lon))return;
+    if(!(lat>32.9&&lat<36.75&&lon>-94.85&&lon<-89.5))return;          // cheap AR bbox prefilter
+    var id=String(o.id),rec=recById[id];
+    if(rec){
+      if(validLL(lat,lon)){rec.o.lat=lat;rec.o.lon=lon;rec.hasReal=true;rec.m.setLatLng([lat,lon]);}
+      if(o.freq&&(!rec.o.d||rec.o.d==='TBD'))rec.o.d=o.freq;
+      if(o.call&&!rec.o.c)rec.o.c=o.call;
+    }else if(arReady&&pointInAR(lat,lon)){                            // online node not in registry, truly in AR
+      var no={n:id,c:(o.call||'').trim(),d:(o.freq||'').trim(),city:(o.name||'').trim()||'(online node)',lat:lat,lon:lon};
+      rec=makeRec(no);rec.hasReal=true;recs.push(rec);
+    }
   });
+  var on=0,off=0;
+  recs.forEach(function(rec){rec.up=!!onlineIds[String(rec.o.n)];rec.up?on++:off++;styleRec(rec);});
   document.getElementById('cOn').textContent=on;
   document.getElementById('cOff').textContent=off;
   document.getElementById('updated').textContent='Live · updated '+new Date().toLocaleTimeString();
   applyFilter();
 }
-function refreshStatus(){
+function refreshFeed(){
   var s=document.createElement('script');
   s.src='https://allstarmap.org/all_online_nodes.js?_='+Date.now();
-  s.onload=function(){
-    try{var set=new Set((window.g_online_nodes||[]).map(function(o){return String(o.id);}));setStatus(set);}
-    catch(e){console.warn('status parse failed',e);}
-    s.remove();
-  };
-  s.onerror=function(){document.getElementById('updated').textContent='status feed unreachable — retrying…';s.remove();};
+  s.onload=function(){try{applyFeed(window.g_online_nodes||[]);}catch(e){console.warn('feed parse failed',e);}s.remove();};
+  s.onerror=function(){document.getElementById('updated').textContent='feed unreachable — retrying…';s.remove();};
   document.body.appendChild(s);
 }
-refreshStatus();
-setInterval(refreshStatus,60000);
 
-// ---- Last-keyed activity (polls online nodes' stats, staggered) ----
+// ---- Live transmit / last-keyed (polls online nodes' stats, staggered) ----
 var activityOn=false,activityTimer=null;
 function fetchKey(rec){
   fetch(API+rec.o.n).then(function(r){return r.json();}).then(function(j){
@@ -408,7 +508,7 @@ function fetchKey(rec){
     if(keyed)rec.lastKeyed=Date.now();
     if(!isNaN(ku))rec.prevKu=ku;
     rec.keyedNow=keyed;
-    styleRec(rec);rec.m.setPopupContent(popupHtml(rec));
+    styleRec(rec);
     updateActivityInfo();
   }).catch(function(){});
 }
@@ -421,16 +521,16 @@ function updateActivityInfo(){
 function activityCycle(){
   if(!activityOn)return;
   var list=recs.filter(function(r){return r.up===true;});
-  list.forEach(function(rec,i){setTimeout(function(){if(activityOn)fetchKey(rec);},i*900);});
+  list.forEach(function(rec,i){setTimeout(function(){if(activityOn)fetchKey(rec);},i*700);});
   updateActivityInfo();
-  activityTimer=setTimeout(activityCycle,Math.max(60000,list.length*900+8000));
+  activityTimer=setTimeout(activityCycle,Math.max(45000,list.length*700+6000));
 }
 document.getElementById('act').addEventListener('change',function(e){
   activityOn=e.target.checked;
-  if(activityOn){document.getElementById('actInfo').textContent='polling key-up activity…';activityCycle();}
+  if(activityOn){document.getElementById('actInfo').textContent='polling transmit status…';activityCycle();}
   else{
     if(activityTimer)clearTimeout(activityTimer);
-    recs.forEach(function(r){r.keyedNow=false;styleRec(r);r.m.setPopupContent(popupHtml(r));});
+    recs.forEach(function(r){r.keyedNow=false;styleRec(r);});
     document.getElementById('actInfo').textContent='';
   }
 });
@@ -465,10 +565,9 @@ function showConn(id,fromBack){
   fetch(API+id).then(function(r){return r.json();}).then(function(j){
     var d=j&&j.stats&&j.stats.data; var ln=(d&&d.linkedNodes)||[];
     connLayer=L.layerGroup().addTo(map);
-    // hub position: the inspected node's own coords (centroid if on-map, else its registry coords), else central AR
     var hub=[34.72,-92.35], hubName='';
     var self=recById[id];
-    if(self){var sl=self.m.getLatLng();hub=[sl.lat,sl.lng];hubName=self.o.c+' — '+self.o.city+', AR';}
+    if(self){var sl=self.m.getLatLng();hub=[sl.lat,sl.lng];hubName=self.o.c+' — '+self.o.city;}
     ln.forEach(function(x){if(String(x.name)===id){
       if(!hubName)hubName=((x.callsign||'')+' '+((x.server&&x.server.Location)||'')).trim();
       if(!self&&x.server){var la=parseFloat(x.server.Latitude),lo=parseFloat(x.server.Logitude);if(validLL(la,lo))hub=[la,lo];}
@@ -521,7 +620,6 @@ document.getElementById('connBack').addEventListener('click',function(){if(connH
 // ---- High-impact warning polygons (NWS): CONSIDERABLE / PDS / EMERGENCY / CATASTROPHIC ----
 var warnOn=false,warnLayer=null,warnTimer=null,warnSeen={},warnMuted=false,warnAudio=null,watchExtra=[];
 var WX_AREA='AR,MO,OK,TX,LA,MS,TN';   // Arkansas + bordering states
-// Watch list: ALL Arkansas counties by default (SAME 005xxx / ", AR"), plus user-added out-of-state counties.
 function normCounty(s){return s.toUpperCase().replace(/\b(COUNTY|PARISH)\b/g,'').replace(/\s+/g,' ').replace(/\s*,\s*/g,', ').trim();}
 function inWatch(pr){
   var same=(pr.geocode&&pr.geocode.SAME)||[];
@@ -563,7 +661,7 @@ function warnColor(tags){
   if(tags.indexOf('PDS')>=0)return '#e8491d';
   return '#f39c12';
 }
-var WARN_TITLE='Arkansas AllStarLink Nodes — Live';
+var WARN_TITLE='Arkansas AUXCOMM Nodemap — Live';
 function warnBeep(){
   if(warnMuted||!warnAudio)return;
   try{
@@ -650,6 +748,12 @@ document.getElementById('warnBtn').addEventListener('click',function(){
     clearInterval(window.__warnTitle);document.title=WARN_TITLE;
   }
 });
+
+// ---- Start live updates ----
+// Retry the initial feed load a few times (allstarmap.org can be slow to first respond).
+(function tryFeed(n){refreshFeed();if(n>0)setTimeout(function(){if(!feedOk)tryFeed(n-1);},7000);})(6);
+setInterval(refreshFeed,60000);
+activityCycle();
 </script>
 </body>
 </html>

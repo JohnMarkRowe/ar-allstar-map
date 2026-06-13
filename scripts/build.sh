@@ -2,7 +2,9 @@
 # Rebuild index.html from the live AllStarLink registry.
 # Pipeline: fetch node directory -> filter Arkansas -> geocode only NEW cities
 # (cached in data/city_coords.txt) -> regenerate the self-contained map.
-set -euo pipefail
+# Note: deliberately NOT using -e/pipefail — the geocode pipelines use grep|head,
+# where grep exits non-zero via SIGPIPE and would abort the run.
+set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -17,12 +19,17 @@ touch "$CACHE"
 
 echo "[1/3] Fetching AllStarLink node directory..."
 curl -fsS -A "$UA" "https://allmondb.allstarlink.org/allmondb.php" -o "$DATA/allmondb.txt"
-grep -E '\|[^|]*, ?AR$' "$DATA/allmondb.txt" > "$DATA/ar_nodes.txt" || true
+# Match Arkansas whether registered as ", AR" or ", Arkansas" (case-insensitive) —
+# the old ", AR"-only filter silently dropped nodes like "Springdale, Arkansas".
+grep -iE '\|[^|]*,[[:space:]]*(AR|Arkansas)[[:space:]]*$' "$DATA/allmondb.txt" > "$DATA/ar_nodes.txt" || true
 echo "      Arkansas nodes: $(wc -l < "$DATA/ar_nodes.txt")"
 
 echo "[2/3] Geocoding new cities (incremental; cached cities are skipped)..."
+# canonical city key (UPPER, state stripped, spaces squeezed) — must match generate_map.sh
 awk -F'|' '{print $4}' "$DATA/ar_nodes.txt" \
-  | sed -E 's/, ?AR$//; s/^ +//; s/ +$//' | sort -u > "$DATA/cities.txt"
+  | tr '[:lower:]' '[:upper:]' \
+  | sed -E 's/[[:space:]]*,?[[:space:]]*(AR|ARKANSAS)[[:space:]]*$//; s/[[:space:]]+/ /g; s/^ //; s/ $//' \
+  | sort -u > "$DATA/cities.txt"
 have="$(cut -d'|' -f1 "$CACHE")"
 new=0
 while IFS= read -r city; do

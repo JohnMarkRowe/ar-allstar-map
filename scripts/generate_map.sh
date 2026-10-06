@@ -134,6 +134,14 @@ cat > "$OUT" <<HTML
     <button id="connBack" disabled>&#9664; Back</button>
     <button id="connClr">Clear</button>
   </div>
+  <div class="connbox" style="margin-top:4px">
+    <label for="connDepth" style="font-size:12px">Depth (hops)</label>
+    <select id="connDepth" title="How many links deep to walk from the inspected node">
+      <option value="1">1 — direct links</option>
+      <option value="2">2 — links of links</option>
+      <option value="3">3 — three deep (capped)</option>
+    </select>
+  </div>
   <div id="connList"></div>
   <div class="filters">
     <button id="warnBtn">&#9888; High-impact warnings</button>
@@ -346,7 +354,90 @@ document.getElementById('act').addEventListener('change',function(e){
 });
 
 // ---- Connection inspector (65017 button + any-node input box + back history) ----
-var connNode=null,connLayer=null,connHist=[];
+var connNode=null,connLayer=null,connHist=[],connRun=0,connCache={};
+var CONN_MAX_FETCH=150, CONN_CONC=4, CONN_TTL=60000;
+var HOP_COLOR={2:'#e67e22',3:'#e74c3c'};
+// one stats call per node; cached 60s so Back / re-inspect / overlapping hops don't refetch
+function fetchLinks(id){
+  var c=connCache[id];
+  if(c&&Date.now()-c.t<CONN_TTL)return c.p;
+  var p=fetch(API+id).then(function(r){return r.json();}).then(function(j){
+    var d=j&&j.stats&&j.stats.data;return (d&&d.linkedNodes)||[];
+  });
+  connCache[id]={t:Date.now(),p:p};
+  p.catch(function(){if(connCache[id]&&connCache[id].p===p)delete connCache[id];});
+  return p;
+}
+// breadth-first walk below hop 1: fetch each frontier node (CONN_CONC at a time), draw new nodes/edges per hop
+function expandDeep(rootId,pos,seen,maxDepth,token,cl,baseHtml,bounds){
+  var hopRows={},fetched=0,truncated=false,level=[];
+  Object.keys(seen).forEach(function(k){if(k!==rootId)level.push(k);});
+  function render(status){
+    var h=baseHtml;
+    for(var hp=2;hp<=maxDepth;hp++){
+      if(hopRows[hp])h+='<br><b style="color:'+HOP_COLOR[hp]+'">Hop '+hp+' — '+hopRows[hp].length+' new</b><br>'+hopRows[hp].join('<br>');
+    }
+    if(status)h+='<br><i>'+status+'</i>';
+    cl.innerHTML=h;
+  }
+  function visit(parent,ln,hop){
+    var next=[];
+    ln.forEach(function(x){
+      var nid=String(x.name); if(seen[nid])return; seen[nid]=hop;
+      var call=((x.callsign||x.User_ID||'')+'').trim();
+      var loc=(x.server&&x.server.Location)||'';
+      var col=HOP_COLOR[hop],rec=recById[nid],ll=null;
+      if(rec){var rl=rec.m.getLatLng();ll=[rl.lat,rl.lng];rec.connHi=true;styleRec(rec);}
+      else{
+        var la=parseFloat(x.server&&x.server.Latitude),lo=parseFloat(x.server&&x.server.Logitude);
+        if(validLL(la,lo)){
+          ll=[la,lo];
+          var mk=L.circleMarker(ll,{radius:5,weight:2,color:col,fillColor:col,fillOpacity:.8}).addTo(connLayer);
+          mk.bindPopup('<b>Node '+nid+'</b> '+call+'<br>'+loc+'<br><i>hop '+hop+' via '+parent+'</i>'+
+            '<br><a href="#" onclick="showConn(\''+nid+'\');return false;">&#9654; open this node&#39;s connections</a>');
+          mk.bindTooltip(nid+' · '+call);
+        }
+      }
+      if(ll){
+        pos[nid]=ll;bounds.push(ll);
+        if(pos[parent])L.polyline([pos[parent],ll],{color:col,weight:1.5,opacity:.65,dashArray:'2 5'}).addTo(connLayer);
+      }
+      (hopRows[hop]=hopRows[hop]||[]).push('<b>'+nid+'</b> '+call+' — '+(loc||'location n/a')+
+        ' <span style="color:#9aa7b3">via '+parent+(ll?'':' · no coords')+'</span>');
+      next.push(nid);
+    });
+    return next;
+  }
+  function runHop(hop){
+    if(hop>maxDepth||!level.length||token!==connRun){
+      if(token!==connRun)return;
+      render(truncated?'stopped at '+CONN_MAX_FETCH+' lookups — result is partial':'');
+      if(bounds.length>1)map.fitBounds(L.latLngBounds(bounds).pad(0.15));
+      return;
+    }
+    var queue=level.slice(),next=[],active=0,done=0,total=queue.length;
+    if(fetched+total>CONN_MAX_FETCH){truncated=true;queue=queue.slice(0,Math.max(0,CONN_MAX_FETCH-fetched));total=queue.length;}
+    if(!total){level=[];runHop(hop+1);return;}
+    function pump(){
+      if(token!==connRun)return;
+      while(active<CONN_CONC&&queue.length){
+        (function(parent){
+          active++;fetched++;
+          fetchLinks(parent).catch(function(){return [];}).then(function(ln){
+            active--;done++;
+            if(token!==connRun)return;
+            visit(parent,ln,hop).forEach(function(n){next.push(n);});
+            render('hop '+hop+': '+done+'/'+total+' nodes checked…');
+            pump();
+          });
+        })(queue.shift());
+      }
+      if(!active&&!queue.length){level=next;runHop(hop+1);}
+    }
+    pump();
+  }
+  runHop(2);
+}
 function validLL(la,lo){return !isNaN(la)&&!isNaN(lo)&&la>=-90&&la<=90&&lo>=-180&&lo<=180&&(Math.abs(la)>0.05||Math.abs(lo)>0.05);}
 function setConnBtnLabel(){
   document.getElementById('connBtn').textContent=
@@ -371,9 +462,10 @@ function showConn(id,fromBack){
   if(!fromBack&&connNode&&connNode!==id)connHist.push(connNode);
   removeConnLayer();
   connNode=id;setConnBtnLabel();updateBackBtn();
+  var token=++connRun;
   cl.style.display='block';cl.innerHTML='loading '+id+' connections…';
-  fetch(API+id).then(function(r){return r.json();}).then(function(j){
-    var d=j&&j.stats&&j.stats.data; var ln=(d&&d.linkedNodes)||[];
+  fetchLinks(id).then(function(ln){
+    if(token!==connRun)return;
     connLayer=L.layerGroup().addTo(map);
     var hub=[34.72,-92.35], hubName='';
     var self=recById[id];
@@ -382,7 +474,7 @@ function showConn(id,fromBack){
       if(!hubName)hubName=((x.callsign||'')+' '+((x.server&&x.server.Location)||'')).trim();
       if(!self&&x.server){var la=parseFloat(x.server.Latitude),lo=parseFloat(x.server.Logitude);if(validLL(la,lo))hub=[la,lo];}
     }});
-    var rows=[],bounds=[hub],seen={};
+    var rows=[],bounds=[hub],seen={},pos={};pos[id]=hub;
     ln.forEach(function(x){
       var nid=String(x.name); if(nid===id||seen[nid])return; seen[nid]=1;
       var call=((x.callsign||x.User_ID||'')+'').trim();
@@ -392,7 +484,7 @@ function showConn(id,fromBack){
         var ll=rec.m.getLatLng();
         rec.connHi=true;styleRec(rec);
         L.polyline([hub,[ll.lat,ll.lng]],{color:'#f1c40f',weight:2,opacity:.85,dashArray:'4 4'}).addTo(connLayer);
-        bounds.push([ll.lat,ll.lng]);
+        bounds.push([ll.lat,ll.lng]);pos[nid]=[ll.lat,ll.lng];
         rows.push('<b>'+nid+'</b> '+call+' — '+loc+' <span style="color:#2ecc55">on map</span>');
       }else{
         var la=parseFloat(x.server&&x.server.Latitude),lo=parseFloat(x.server&&x.server.Logitude);
@@ -405,7 +497,7 @@ function showConn(id,fromBack){
             '<br><a href="#" onclick="showConn(\''+nid+'\');return false;">&#9654; open this node&#39;s connections</a>');
           mk.bindTooltip(nid+' · '+call);
           L.polyline([hub,[la,lo]],{color:col,weight:2,opacity:.75,dashArray:'4 4'}).addTo(connLayer);
-          bounds.push([la,lo]);
+          bounds.push([la,lo]);pos[nid]=[la,lo];
           rows.push('<b>'+nid+'</b> '+call+' — '+loc+' <span style="color:'+col+'">'+(inAR?'plotted':'out of state')+'</span>');
         }else{
           rows.push('<b>'+nid+'</b> '+call+' — '+(loc||'location n/a')+' <span style="color:#9aa7b3">no coords</span>');
@@ -415,8 +507,11 @@ function showConn(id,fromBack){
     var hubMk=L.marker(hub).addTo(connLayer);
     hubMk.bindPopup('<b>Node '+id+'</b>'+(hubName?'<br>'+hubName:'')+'<br>'+rows.length+' nodes connected').openPopup();
     if(bounds.length>1)map.fitBounds(L.latLngBounds(bounds).pad(0.25));
-    cl.innerHTML='<b>'+id+' — '+rows.length+' connected</b>'+(hubName?' <span style="color:#9fb3c8">('+hubName+')</span>':'')+
-      (rows.length?'<br>'+rows.join('<br>'):'<br><i>no active connections (node may be offline)</i>');
+    var baseHtml='<b>'+id+' — '+rows.length+' connected</b>'+(hubName?' <span style="color:#9fb3c8">('+hubName+')</span>':'')+
+      (rows.length?'<br><b style="color:#f1c40f">Hop 1</b><br>'+rows.join('<br>'):'<br><i>no active connections (node may be offline)</i>');
+    cl.innerHTML=baseHtml;
+    var depth=parseInt(document.getElementById('connDepth').value,10)||1;
+    if(depth>1&&rows.length){seen[id]='root';expandDeep(id,pos,seen,depth,token,cl,baseHtml,bounds);}
   }).catch(function(){cl.innerHTML='Failed to load connections for node '+id+'.';});
 }
 document.getElementById('connBtn').addEventListener('click',function(){
@@ -426,6 +521,7 @@ document.getElementById('connGo').addEventListener('click',function(){showConn(d
 document.getElementById('connInput').addEventListener('keydown',function(e){if(e.key==='Enter')showConn(this.value);});
 document.getElementById('connClr').addEventListener('click',function(){clearConn();document.getElementById('connInput').value='';});
 document.getElementById('connBack').addEventListener('click',function(){if(connHist.length)showConn(connHist.pop(),true);});
+document.getElementById('connDepth').addEventListener('change',function(){if(connNode)showConn(connNode,true);});
 
 // ---- High-impact warning polygons (NWS): CONSIDERABLE / PDS / EMERGENCY / CATASTROPHIC ----
 var warnOn=false,warnLayer=null,warnTimer=null,warnSeen={},warnMuted=false,warnAudio=null,watchExtra=[];

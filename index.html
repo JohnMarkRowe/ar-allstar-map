@@ -665,8 +665,9 @@ function showConn(id,fromBack){
   removeConnLayer();
   connNode=id;setConnBtnLabel();updateBackBtn();
   var token=++connRun;
-  cl.style.display='block';cl.innerHTML='loading '+id+' connections…';
-  fetchLinks(id).then(function(ln){
+  cl.style.display='block';cl.innerHTML='<i>loading '+id+' connections… (up to ~25 s if the AllStarLink stats server is slow)</i>';
+  try{cl.scrollIntoView({block:'nearest'});}catch(e){}
+  fetchLinks(id,1).then(function(ln){
     if(token!==connRun)return;
     connLayer=L.layerGroup().addTo(map);
     var hub=[34.72,-92.35], hubName='';
@@ -714,7 +715,7 @@ function showConn(id,fromBack){
     cl.innerHTML=baseHtml;
     var depth=parseInt(document.getElementById('connDepth').value,10)||1;
     if(depth>1&&rows.length){seen[id]='root';expandDeep(id,pos,seen,depth,token,cl,baseHtml,bounds);}
-  }).catch(function(){cl.innerHTML='Failed to load connections for node '+id+'.';});
+  }).catch(function(){if(token===connRun)cl.innerHTML='<b style="color:#e74c3c">Could not load node '+id+'.</b> The AllStarLink stats server (stats.allstarlink.org) did not answer after a retry — it is slow or down. Try again in a minute.';});
 }
 document.getElementById('connBtn').addEventListener('click',function(){
   if(connNode==='65017')clearConn(); else showConn('65017');

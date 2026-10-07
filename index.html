@@ -548,14 +548,21 @@ document.getElementById('act').addEventListener('change',function(e){
 
 // ---- Connection inspector (65017 button + any-node input box + back history) ----
 var connNode=null,connLayer=null,connHist=[],connRun=0,connCache={};
-var CONN_MAX_FETCH=150, CONN_CONC=4, CONN_TTL=60000, CONN_TIMEOUT=12000;
+var CONN_MAX_FETCH=150, CONN_CONC=2, CONN_RETRIES=1, CONN_TTL=60000, CONN_TIMEOUT=12000;
 var HOP_COLOR={2:'#e67e22',3:'#e74c3c'};
 // one stats call per node; cached 60s so Back / re-inspect / overlapping hops don't refetch
-function fetchLinks(id){
+function fetchLinks(id,retries){
   var c=connCache[id];
   if(c&&Date.now()-c.t<CONN_TTL)return c.p;
-  var ac=new AbortController(),tm=setTimeout(function(){ac.abort();},CONN_TIMEOUT);
-  var p=fetch(API+id,{signal:ac.signal}).then(function(r){clearTimeout(tm);return r.json();}).then(function(j){
+  function attempt(left){
+    var ac=new AbortController(),tm=setTimeout(function(){ac.abort();},CONN_TIMEOUT);
+    return fetch(API+id,{signal:ac.signal}).then(function(r){clearTimeout(tm);return r.json();}).catch(function(e){
+      clearTimeout(tm);
+      if(left>0)return attempt(left-1);
+      throw e;
+    });
+  }
+  var p=attempt(retries||0).then(function(j){
     var d=j&&j.stats&&j.stats.data;return (d&&d.linkedNodes)||[];
   });
   connCache[id]={t:Date.now(),p:p};
@@ -618,7 +625,7 @@ function expandDeep(rootId,pos,seen,maxDepth,token,cl,baseHtml,bounds){
       while(active<CONN_CONC&&queue.length){
         (function(parent){
           active++;fetched++;
-          fetchLinks(parent).catch(function(){failed++;return [];}).then(function(ln){
+          fetchLinks(parent,CONN_RETRIES).catch(function(){failed++;return [];}).then(function(ln){
             active--;done++;
             if(token!==connRun)return;
             visit(parent,ln,hop).forEach(function(n){next.push(n);});

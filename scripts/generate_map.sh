@@ -44,11 +44,12 @@ cat > "$OUT" <<HTML
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Arkansas AUXCOMM Nodemap — Live</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" integrity="sha384-pmjIAcz2bAn0xukfxADbZIb3t8oRT9Sv0rvO+BR5Csr6Dhqq+nZs59P0pPKQJkEV" crossorigin="anonymous"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" integrity="sha384-wgw+aLYNQ7dlhK47ZPK7FRACiq7ROZwgFNg0m04avm4CaXS+Z9Y7nMu8yNjBKYC+" crossorigin="anonymous"/>
 <style>
   html,body{margin:0;height:100%;font-family:system-ui,Segoe UI,Arial,sans-serif}
   #map{height:100%}
@@ -164,10 +165,12 @@ cat > "$OUT" <<HTML
 <div id="map"></div>
 <div id="warnFlash"></div>
 <div id="warnAlert"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" integrity="sha384-eXVCORTRlv4FUUgS/xmOyr66XBVraen8ATNLMESp92FKXLAMiKkerixTiBvXriZr" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js" integrity="sha384-twf8YFpk0FSzm0AmW2GRJjjnqIuQ2y86vZXh2roYI8O+kFbEBjSUDUT6U72w8shL" crossorigin="anonymous"></script>
 <script>
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function nodeId(v){v=String(v==null?'':v).trim();return /^[0-9]+$/.test(v)?v:'';}
 var nodes=[
 $DATA
 ];
@@ -206,7 +209,7 @@ fetch(AGIO+'FEATURESERVICES/Boundaries/MapServer/48/query?where=1%3D1&outFields=
        ['COUNTY_NAME','NAME','County','COUNTYNAME','county','NAME10'].forEach(function(k){if(!nm&&p[k])nm=p[k];});
        if(!nm){for(var k in p){if(/name/i.test(k)&&p[k]){nm=String(p[k]);break;}}}
        nm=String(nm).replace(/county/i,'').trim();
-       l.bindTooltip((nm||'County')+' County',{sticky:true});
+       l.bindTooltip(esc(nm||'County')+' County',{sticky:true});
        l.on('mouseover',function(){l.setStyle({weight:2,fillOpacity:0.15});});
        l.on('mouseout',function(){l.setStyle({weight:1,fillOpacity:0.05});});
      }}).addTo(map);
@@ -249,15 +252,15 @@ function popupHtml(rec){
   if(rec.keyedNow)act='<br><b style="color:#ff3b1d">&#128308; ON AIR now</b>';
   else if(rec.lastKeyed)act='<br>Last keyed '+rel(rec.lastKeyed)+' ago <span style="color:#999">(observed)</span>';
   var pos=rec.hasReal?'':' <span style="color:#999">(approx city center)</span>';
-  return '<span class="nn">Node '+rec.o.n+'</span> '+badge+'<br><b>'+rec.o.c+'</b><br>'+
-    (rec.o.d?rec.o.d+'<br>':'')+rec.o.city+pos+act+
+  return '<span class="nn">Node '+rec.o.n+'</span> '+badge+'<br><b>'+esc(rec.o.c)+'</b><br>'+
+    (rec.o.d?esc(rec.o.d)+'<br>':'')+esc(rec.o.city)+pos+act+
     '<br><a href="#" onclick="showConn(\''+rec.o.n+'\');return false;">&#9654; open this node&#39;s connections</a>'+
-    '<br><a href="https://stats.allstarlink.org/stats/'+rec.o.n+'" target="_blank">stats &#8599;</a>';
+    '<br><a href="https://stats.allstarlink.org/stats/'+rec.o.n+'" target="_blank" rel="noopener noreferrer">stats &#8599;</a>';
 }
 function makeRec(o){
   var m=L.circleMarker([o.lat,o.lon],{radius:7,weight:1.5,color:'#1b2a38',fillColor:'#9aa7b3',fillOpacity:0.9});
   var rec={o:o,m:m,up:null,prevKu:null,keyedNow:false,lastKeyed:null,connHi:false,hasReal:false};
-  m.bindPopup(function(){return popupHtml(rec);}); m.bindTooltip(o.n+' · '+o.c);
+  m.bindPopup(function(){return popupHtml(rec);}); m.bindTooltip(esc(o.n+' · '+o.c));
   recById[String(o.n)]=rec; return rec;
 }
 var recs=nodes.map(makeRec);
@@ -391,9 +394,9 @@ function expandDeep(rootId,pos,seen,maxDepth,token,cl,baseHtml,bounds){
   function visit(parent,ln,hop){
     var next=[];
     ln.forEach(function(x){
-      var nid=String(x.name); if(seen[nid])return; seen[nid]=hop;
-      var call=((x.callsign||x.User_ID||'')+'').trim();
-      var loc=(x.server&&x.server.Location)||'';
+      var nid=nodeId(x.name); if(!nid||seen[nid])return; seen[nid]=hop;
+      var call=esc(((x.callsign||x.User_ID||'')+'').trim());
+      var loc=esc((x.server&&x.server.Location)||'');
       var col=HOP_COLOR[hop],rec=recById[nid],ll=null;
       if(rec){var rl=rec.m.getLatLng();ll=[rl.lat,rl.lng];rec.connHi=true;styleRec(rec);}
       else{
@@ -479,16 +482,16 @@ function showConn(id,fromBack){
     connLayer=L.layerGroup().addTo(map);
     var hub=[34.72,-92.35], hubName='';
     var self=recById[id];
-    if(self){var sl=self.m.getLatLng();hub=[sl.lat,sl.lng];hubName=self.o.c+' — '+self.o.city;}
+    if(self){var sl=self.m.getLatLng();hub=[sl.lat,sl.lng];hubName=esc(self.o.c+' — '+self.o.city);}
     ln.forEach(function(x){if(String(x.name)===id){
-      if(!hubName)hubName=((x.callsign||'')+' '+((x.server&&x.server.Location)||'')).trim();
+      if(!hubName)hubName=esc(((x.callsign||'')+' '+((x.server&&x.server.Location)||'')).trim());
       if(!self&&x.server){var la=parseFloat(x.server.Latitude),lo=parseFloat(x.server.Logitude);if(validLL(la,lo))hub=[la,lo];}
     }});
     var rows=[],bounds=[hub],seen={},pos={};pos[id]=hub;
     ln.forEach(function(x){
-      var nid=String(x.name); if(nid===id||seen[nid])return; seen[nid]=1;
-      var call=((x.callsign||x.User_ID||'')+'').trim();
-      var loc=(x.server&&x.server.Location)||'';
+      var nid=nodeId(x.name); if(!nid||nid===id||seen[nid])return; seen[nid]=1;
+      var call=esc(((x.callsign||x.User_ID||'')+'').trim());
+      var loc=esc((x.server&&x.server.Location)||'');
       var rec=recById[nid];
       if(rec){
         var ll=rec.m.getLatLng();
@@ -547,7 +550,7 @@ function inWatch(pr){
 }
 function renderWatchChips(){
   var el=document.getElementById('watchList');
-  el.innerHTML=watchExtra.map(function(c,i){return '<span class="chip">'+c+'<span class="chipx" data-i="'+i+'">&times;</span></span>';}).join('');
+  el.innerHTML=watchExtra.map(function(c,i){return '<span class="chip">'+esc(c)+'<span class="chipx" data-i="'+i+'">&times;</span></span>';}).join('');
   [].forEach.call(el.querySelectorAll('.chipx'),function(x){x.onclick=function(){watchExtra.splice(+x.getAttribute('data-i'),1);renderWatchChips();};});
 }
 document.getElementById('watchAdd').addEventListener('click',function(){
@@ -603,7 +606,7 @@ function triggerWarnAlert(news){
   var msg=news.length+' NEW high-impact warning'+(news.length>1?'s':'')+': '+first.event+' — '+
           first.tags.join(' · ')+' ('+first.area+')'+(news.length>1?'  +'+(news.length-1)+' more':'');
   var b=document.getElementById('warnAlert');
-  b.innerHTML='&#9888; '+msg+' <span id="warnAlertX">&times;</span>';
+  b.innerHTML='&#9888; '+esc(msg)+' <span id="warnAlertX">&times;</span>';
   b.style.display='block';b.className='show';
   document.getElementById('warnAlertX').onclick=function(){b.style.display='none';clearInterval(window.__warnTitle);document.title=WARN_TITLE;};
   var fl=document.getElementById('warnFlash');fl.classList.remove('active');void fl.offsetWidth;fl.classList.add('active');
@@ -628,8 +631,8 @@ function renderWarnings(feats){
     var st=watched?{color:col,weight:2,fillColor:col,fillOpacity:0.25}
                   :{color:col,weight:1,fillColor:col,fillOpacity:0.08,dashArray:'5 5'};
     L.geoJSON(f.geometry,{style:st})
-      .bindPopup('<b>'+(pr.event||'Warning')+'</b><br><b style="color:'+col+'">'+tags.join(' &middot; ')+
-        '</b><br>'+(pr.areaDesc||'')+'<br><span style="color:#777">expires '+exp+'</span>'+
+      .bindPopup('<b>'+esc(pr.event||'Warning')+'</b><br><b style="color:'+col+'">'+tags.map(esc).join(' &middot; ')+
+        '</b><br>'+esc(pr.areaDesc||'')+'<br><span style="color:#777">expires '+esc(exp)+'</span>'+
         (watched?'':'<br><i style="color:#999">outside watch list — no alarm</i>'))
       .addTo(warnLayer);
   });

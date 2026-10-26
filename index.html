@@ -436,15 +436,15 @@ function popupHtml(rec){
   if(rec.keyedNow)act='<br><b style="color:#ff3b1d">&#128308; ON AIR now</b>';
   else if(rec.lastKeyed)act='<br>Last keyed '+rel(rec.lastKeyed)+' ago <span style="color:#999">(observed)</span>';
   var pos=rec.hasReal?'':' <span style="color:#999">(approx city center)</span>';
-  return '<span class="nn">Node '+rec.o.n+'</span> '+badge+'<br><b>'+rec.o.c+'</b><br>'+
-    (rec.o.d?rec.o.d+'<br>':'')+rec.o.city+pos+act+
+  return '<span class="nn">Node '+rec.o.n+'</span> '+badge+'<br><b>'+esc(rec.o.c)+'</b><br>'+
+    (rec.o.d?esc(rec.o.d)+'<br>':'')+esc(rec.o.city)+pos+act+
     '<br><a href="#" onclick="showConn(\''+rec.o.n+'\');return false;">&#9654; open this node&#39;s connections</a>'+
     '<br><a href="https://stats.allstarlink.org/stats/'+rec.o.n+'" target="_blank" rel="noopener noreferrer">stats &#8599;</a>';
 }
 function makeRec(o){
   var m=L.circleMarker([o.lat,o.lon],{radius:7,weight:1.5,color:'#1b2a38',fillColor:'#9aa7b3',fillOpacity:0.9});
   var rec={o:o,m:m,up:null,prevKu:null,keyedNow:false,lastKeyed:null,connHi:false,hasReal:false};
-  m.bindPopup(function(){return popupHtml(rec);}); m.bindTooltip(o.n+' · '+o.c);
+  m.bindPopup(function(){return popupHtml(rec);}); m.bindTooltip(esc(o.n+' · '+o.c));
   recById[String(o.n)]=rec; return rec;
 }
 var recs=nodes.map(makeRec);
